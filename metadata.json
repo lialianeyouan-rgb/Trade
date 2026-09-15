@@ -1,0 +1,6 @@
+{
+  "name": "Adaptive Market-Making Research Engine",
+  "description": "A research and simulation platform for studying adaptive market-making strategies under non-stationary, adversarial market conditions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
