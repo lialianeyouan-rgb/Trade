@@ -1,13 +1,16 @@
 #pragma once
+
 #include "order.hpp"
 #include <map>
 #include <list>
 #include <unordered_map>
+#include <vector>
 
 class OrderBook {
 public:
     void add_order(const Order& order);
     void cancel_order(uint64_t order_id);
+    void cancel_orders_by_trader(uint32_t trader_id);
     
     // For debugging/testing
     const std::map<double, std::list<Order>, std::greater<double>>& get_bids() const { return bids; }

@@ -8,7 +8,6 @@ public:
         : spread(spread), size(size), id_counter(id_start), skew_factor(skew_factor), risk(risk) {}
 
     void update(const Market& market) override;
-    std::vector<Order> get_orders() const { return orders; }
 
 private:
     double spread;
@@ -16,5 +15,4 @@ private:
     uint64_t id_counter;
     double skew_factor;
     const RiskEngine& risk;
-    std::vector<Order> orders;
 };

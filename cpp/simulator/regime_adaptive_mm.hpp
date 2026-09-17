@@ -1,4 +1,7 @@
+#pragma once
 #include "market_maker.hpp"
+#include "fixed_spread_mm.hpp"
+#include "volatility_adaptive_mm.hpp"
 #include "feature_engine.hpp"
 
 class RegimeAdaptiveMM : public MarketMaker {
@@ -7,7 +10,6 @@ public:
         : fixed_mm(spread, size, id_start), vol_mm(spread, size, id_start + 1000000) {}
 
     void update(const Market& market) override;
-    std::vector<Order> get_orders() const;
 
 private:
     FixedSpreadMM fixed_mm;

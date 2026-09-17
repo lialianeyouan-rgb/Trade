@@ -1,7 +1,8 @@
 #pragma once
 #include "../orderbook/order_book.hpp"
+#include <vector>
 
 class MatchingEngine {
 public:
-    void match(OrderBook& book, Order& incoming_order);
+    std::vector<Trade> match(OrderBook& book, Order& incoming_order);
 };

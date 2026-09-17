@@ -12,6 +12,6 @@ void VolatilityAdaptiveMM::update(const Market& market) {
 
     double mid = features.mid_price;
 
-    orders.push_back({id_counter++, OrderType::LIMIT, Side::BUY, mid - adjusted_spread / 2.0, adjusted_size, 0});
-    orders.push_back({id_counter++, OrderType::LIMIT, Side::SELL, mid + adjusted_spread / 2.0, adjusted_size, 0});
+    orders.push_back({global_id_counter++, 1, OrderType::LIMIT, Side::BUY, mid - adjusted_spread / 2.0, adjusted_size, 0});
+    orders.push_back({global_id_counter++, 1, OrderType::LIMIT, Side::SELL, mid + adjusted_spread / 2.0, adjusted_size, 0});
 }

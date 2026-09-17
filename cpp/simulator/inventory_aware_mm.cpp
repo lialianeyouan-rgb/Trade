@@ -12,6 +12,6 @@ void InventoryAwareMM::update(const Market& market) {
     double skew = -risk.get_current_position() * skew_factor;
     double skewed_mid = mid + skew;
 
-    orders.push_back({id_counter++, OrderType::LIMIT, Side::BUY, skewed_mid - spread / 2.0, size, 0});
-    orders.push_back({id_counter++, OrderType::LIMIT, Side::SELL, skewed_mid + spread / 2.0, size, 0});
+    orders.push_back({global_id_counter++, 1, OrderType::LIMIT, Side::BUY, skewed_mid - spread / 2.0, size, 0});
+    orders.push_back({global_id_counter++, 1, OrderType::LIMIT, Side::SELL, skewed_mid + spread / 2.0, size, 0});
 }

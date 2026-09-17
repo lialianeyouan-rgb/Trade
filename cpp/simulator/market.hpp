@@ -5,9 +5,9 @@
 
 class Market {
 public:
-    void process_order(Order& order);
+    std::vector<Trade> process_order(Order& order);
+    void cancel_orders_by_trader(uint32_t trader_id) { book.cancel_orders_by_trader(trader_id); }
     const OrderBook& get_book() const { return book; }
-
 private:
     OrderBook book;
     MatchingEngine matching_engine;

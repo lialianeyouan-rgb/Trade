@@ -24,3 +24,14 @@ void OrderBook::cancel_order(uint64_t order_id) {
     }
     order_id_map.erase(it);
 }
+void OrderBook::cancel_orders_by_trader(uint32_t trader_id) {
+    std::vector<uint64_t> to_cancel;
+    for (const auto& pair : order_id_map) {
+        if (pair.second.it->trader_id == trader_id) {
+            to_cancel.push_back(pair.first);
+        }
+    }
+    for (uint64_t id : to_cancel) {
+        cancel_order(id);
+    }
+}
