@@ -12,6 +12,7 @@ struct Order {
     double price;
     uint64_t quantity;
     uint64_t timestamp;
+    uint64_t queue_ahead = 0; // Volume ahead of this order in FIFO queue at arrival
 };
 
 struct Trade {
@@ -21,4 +22,6 @@ struct Trade {
     double price;
     uint64_t quantity;
     uint64_t timestamp;
+    double maker_rebate = 0.0; // Maker fee rebate (+0.01% / +1 bps)
+    double taker_fee = 0.0;    // Taker fee (-0.02% / -2 bps)
 };

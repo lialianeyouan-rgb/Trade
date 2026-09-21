@@ -11,6 +11,11 @@ public:
 
     void update(const Market& market) override;
 
+    void update_params(double new_spread, uint64_t new_size, double extra = 0.0) override {
+        fixed_mm.update_params(new_spread, new_size, extra);
+        vol_mm.update_params(new_spread, new_size, extra);
+    }
+
 private:
     FixedSpreadMM fixed_mm;
     VolatilityAdaptiveMM vol_mm;

@@ -8,6 +8,7 @@ public:
     virtual ~MarketMaker() = default;
     virtual void update(const Market& market) = 0;
     virtual std::vector<Order> get_orders() const { return orders; }
+    virtual void update_params(double /*spread*/, uint64_t /*size*/, double /*extra*/ = 0.0) {}
 protected:
     std::vector<Order> orders;
     inline static uint64_t global_id_counter = 1000000;

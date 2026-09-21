@@ -1,36 +1,75 @@
 #include "matching_engine.hpp"
-#include <iostream>
 #include <algorithm>
 
 std::vector<Trade> MatchingEngine::match(OrderBook& book, Order& incoming_order) {
     std::vector<Trade> trades;
-    auto& bids = const_cast<std::map<double, std::list<Order>, std::greater<double>>&>(book.get_bids());
-    auto& asks = const_cast<std::map<double, std::list<Order>>&>(book.get_asks());
+    auto& bids = book.get_mutable_bids();
+    auto& asks = book.get_mutable_asks();
 
     if (incoming_order.side == Side::BUY) {
-        while (!asks.empty() && incoming_order.price >= asks.begin()->first && incoming_order.quantity > 0) {
-            auto& ask_level = asks.begin()->second;
+        while (!asks.empty() && 
+               (incoming_order.type == OrderType::MARKET || incoming_order.price >= asks.front().first) && 
+               incoming_order.quantity > 0) {
+            auto& ask_level = asks.front().second;
+            if (ask_level.empty()) {
+                asks.erase(asks.begin());
+                continue;
+            }
             Order& ask = ask_level.front();
             uint64_t matched_qty = std::min(incoming_order.quantity, ask.quantity);
+            double exec_price = ask.price;
+            double trade_val = exec_price * static_cast<double>(matched_qty);
             
-            trades.push_back({ask.trader_id, incoming_order.trader_id, ask.side, ask.price, matched_qty, incoming_order.timestamp});
+            // Maker rebate: +0.01% (+1 bps), Taker fee: -0.02% (-2 bps)
+            double maker_rebate = trade_val * 0.0001;
+            double taker_fee = -trade_val * 0.0002;
+
+            trades.push_back({
+                ask.trader_id,
+                incoming_order.trader_id,
+                ask.side,
+                exec_price,
+                matched_qty,
+                incoming_order.timestamp,
+                maker_rebate,
+                taker_fee
+            });
             
             incoming_order.quantity -= matched_qty;
             ask.quantity -= matched_qty;
 
             if (ask.quantity == 0) {
-                // Instead of popping directly, let's use the proper cancel/removal if possible.
-                // But we can just use book.cancel_order to properly remove it and clean up the map!
                 book.cancel_order(ask.id);
             }
         }
     } else {
-        while (!bids.empty() && incoming_order.price <= bids.begin()->first && incoming_order.quantity > 0) {
-            auto& bid_level = bids.begin()->second;
+        while (!bids.empty() && 
+               (incoming_order.type == OrderType::MARKET || incoming_order.price <= bids.front().first) && 
+               incoming_order.quantity > 0) {
+            auto& bid_level = bids.front().second;
+            if (bid_level.empty()) {
+                bids.erase(bids.begin());
+                continue;
+            }
             Order& bid = bid_level.front();
             uint64_t matched_qty = std::min(incoming_order.quantity, bid.quantity);
-            
-            trades.push_back({bid.trader_id, incoming_order.trader_id, bid.side, bid.price, matched_qty, incoming_order.timestamp});
+            double exec_price = bid.price;
+            double trade_val = exec_price * static_cast<double>(matched_qty);
+
+            // Maker rebate: +0.01% (+1 bps), Taker fee: -0.02% (-2 bps)
+            double maker_rebate = trade_val * 0.0001;
+            double taker_fee = -trade_val * 0.0002;
+
+            trades.push_back({
+                bid.trader_id,
+                incoming_order.trader_id,
+                bid.side,
+                exec_price,
+                matched_qty,
+                incoming_order.timestamp,
+                maker_rebate,
+                taker_fee
+            });
             
             incoming_order.quantity -= matched_qty;
             bid.quantity -= matched_qty;

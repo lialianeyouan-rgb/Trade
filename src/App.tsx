@@ -1,29 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
 import MarketView from './components/MarketView';
 import ResearchLabView from './components/ResearchLabView';
-import { Activity, FlaskConical, Terminal, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import AutopsyView from './components/AutopsyView';
+import StrategyView from './components/StrategyView';
+import { EngineData, ExperimentResults } from './types';
+import { Activity, FlaskConical, ShieldAlert, Cpu, RefreshCw } from 'lucide-react';
 
 const views = [
   { id: 'MARKET', label: 'MARKET VIEW', icon: Activity },
   { id: 'RESEARCH', label: 'RESEARCH LAB', icon: FlaskConical },
+  { id: 'AUTOPSY', label: 'RISK & AUTOPSY', icon: ShieldAlert },
+  { id: 'STRATEGY', label: 'STRATEGY PARAMS', icon: Cpu },
 ];
 
 export default function App() {
   const [activeView, setActiveView] = useState('MARKET');
   
   // Shared Engine & Market State
-  const [data, setData] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
+  const [data, setData] = useState<EngineData | null>(null);
+  const [history, setHistory] = useState<Array<{ time: number; pnl: number; inventory: number; mid: number }>>([]);
   const [lastExperiment, setLastExperiment] = useState<{
     strategy: string;
     seed: number;
     duration: number;
-    results: {
-      pnl: number;
-      max_drawdown: number;
-      trades_count: number;
-      volume_traded: number;
-    };
+    results: ExperimentResults;
   } | null>(null);
 
   const [isConnected, setIsConnected] = useState(false);
@@ -53,7 +53,11 @@ export default function App() {
         const message = JSON.parse(event.data);
         if (message.type === 'engine_data') {
           try {
-            const parsed = JSON.parse(message.data);
+            let parsed = JSON.parse(message.data);
+            // Handle standardized IPC protocol {"type": "TICK", "payload": {...}}
+            if (parsed.type === 'TICK' && parsed.payload) {
+              parsed = parsed.payload;
+            }
             if (parsed.type === 'experiment_complete' && parsed.results) {
               setIsSimulating(false);
               if (simulationTimeoutRef.current) clearTimeout(simulationTimeoutRef.current);
@@ -120,7 +124,7 @@ export default function App() {
     };
   }, []);
 
-  const handleStartExperiment = (params: { strategy: string; seed: number; duration: number }) => {
+  const handleStartExperiment = (params: { strategy: string; seed: number; duration: number; replay?: string }) => {
     currentExperimentRef.current = params;
     setHistory([]);
     if (params.duration > 0) {
@@ -144,6 +148,17 @@ export default function App() {
     } else {
       console.warn('[WS] WebSocket not open, cannot send START_EXPERIMENT');
       setIsSimulating(false);
+    }
+  };
+
+  const handleUpdateParams = (params: { gamma?: number; spread?: number; size?: number; max_pos?: number; skew_factor?: number }) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'UPDATE_PARAMS',
+          ...params,
+        })
+      );
     }
   };
 
@@ -187,7 +202,6 @@ export default function App() {
 
         {/* Engine Status Badge in Top-Right */}
         <div className="flex items-center gap-3">
-          {/* Active Status Badge */}
           <div className="flex items-center gap-2">
             {isSimulating ? (
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-950/40 border border-amber-900/60 text-amber-400 text-xs font-semibold">
@@ -211,9 +225,10 @@ export default function App() {
 
       {/* Main Workspace with Independent Scrollable Views */}
       <main className="flex-1 overflow-hidden p-3 min-h-0">
-        {activeView === 'MARKET' ? (
+        {activeView === 'MARKET' && (
           <MarketView data={data} history={history} isConnected={isConnected} />
-        ) : (
+        )}
+        {activeView === 'RESEARCH' && (
           <ResearchLabView
             onStartExperiment={handleStartExperiment}
             lastExperiment={lastExperiment}
@@ -221,6 +236,12 @@ export default function App() {
             isSimulating={isSimulating}
             setHistory={setHistory}
           />
+        )}
+        {activeView === 'AUTOPSY' && (
+          <AutopsyView data={data} history={history} isConnected={isConnected} />
+        )}
+        {activeView === 'STRATEGY' && (
+          <StrategyView data={data} isConnected={isConnected} onUpdateParams={handleUpdateParams} />
         )}
       </main>
     </div>

@@ -6,3 +6,17 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Python virtual environment & cache
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# C++ build artifacts
+cpp/build/
+cpp/*.o
+cpp/*.obj
+cpp/mm_engine
+cpp/mm_engine.exe
+*.exe

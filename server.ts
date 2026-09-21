@@ -58,6 +58,15 @@ async function startServer() {
   const { app, getWss } = expressWs(express());
   const PORT = 3000;
 
+  // JSON REST API endpoints
+  app.get("/api/health", (_req, res) => {
+    res.json({
+      status: "ok",
+      engine: activeProcess ? "running" : "idle",
+      uptime: process.uptime(),
+    });
+  });
+
   let activeProcess: ChildProcess | null = null;
   let activeArgs: string[] = [];
 
@@ -105,7 +114,7 @@ async function startServer() {
     let child: ChildProcess;
     try {
       child = spawn(currentEnginePath, args, {
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
       });
     } catch (e: any) {
@@ -184,9 +193,15 @@ async function startServer() {
           if (command.strategy) args.push("--strategy", command.strategy);
           if (command.seed !== undefined && command.seed !== null) args.push("--seed", command.seed.toString());
           if (command.duration !== undefined && command.duration !== null) args.push("--duration", command.duration.toString());
+          if (command.replay) args.push("--replay", command.replay);
           
-          console.log(`[WS] START_EXPERIMENT received: strategy=${command.strategy} seed=${command.seed} duration=${command.duration}`);
+          console.log(`[WS] START_EXPERIMENT received: strategy=${command.strategy} seed=${command.seed} duration=${command.duration} replay=${command.replay}`);
           startEngine(args);
+        } else if (command.type === "UPDATE_PARAMS") {
+          console.log("[WS] Forwarding UPDATE_PARAMS to engine stdin:", command);
+          if (activeProcess && activeProcess.stdin && !activeProcess.stdin.destroyed) {
+            activeProcess.stdin.write(JSON.stringify(command) + "\n");
+          }
         }
       } catch (e: any) {
         console.error("[WS] Failed to parse message:", e.message || e);
