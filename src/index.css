@@ -2,14 +2,33 @@
 
 @layer base {
   body {
-    @apply bg-[#0a0a0a] text-[#e0e0e0] font-mono antialiased;
+    @apply bg-[#080808] text-[#e5e5e5] font-mono antialiased selection:bg-emerald-900 selection:text-white;
   }
 }
 
 .terminal-border {
-  @apply border border-[#262626];
+  @apply border border-[#222222] bg-[#0d0d0d];
 }
 
 .terminal-text {
-  @apply text-xs uppercase tracking-wider;
+  @apply text-xs uppercase tracking-wider font-semibold text-neutral-400;
+}
+
+/* Custom crisp scrollbars for terminal ergonomics */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #262626;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #383838;
 }

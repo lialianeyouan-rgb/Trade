@@ -1,18 +1,42 @@
 import { useState, useEffect, useRef } from 'react';
 import MarketView from './components/MarketView';
 import ResearchLabView from './components/ResearchLabView';
+import { Activity, FlaskConical, Terminal, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
-const views = ['MARKET', 'RESEARCH'];
+const views = [
+  { id: 'MARKET', label: 'MARKET VIEW', icon: Activity },
+  { id: 'RESEARCH', label: 'RESEARCH LAB', icon: FlaskConical },
+];
 
 export default function App() {
   const [activeView, setActiveView] = useState('MARKET');
   
-  // Shared State
+  // Shared Engine & Market State
   const [data, setData] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [lastExperiment, setLastExperiment] = useState<{
+    strategy: string;
+    seed: number;
+    duration: number;
+    results: {
+      pnl: number;
+      max_drawdown: number;
+      trades_count: number;
+      volume_traded: number;
+    };
+  } | null>(null);
+
   const [isConnected, setIsConnected] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const simulationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const currentExperimentRef = useRef<{ strategy: string; seed: number; duration: number }>({
+    strategy: 'FixedSpreadMM',
+    seed: 42,
+    duration: 0,
+  });
 
   const connectWebSocket = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -21,7 +45,7 @@ export default function App() {
 
     ws.onopen = () => {
       setIsConnected(true);
-      console.log('WebSocket connected');
+      console.log('[WS] Connected to quant engine stream');
     };
 
     ws.onmessage = (event) => {
@@ -30,36 +54,57 @@ export default function App() {
         if (message.type === 'engine_data') {
           try {
             const parsed = JSON.parse(message.data);
-            setData(parsed);
-            if (parsed.performance && parsed.market) {
-               setHistory(prev => {
-                  const newHist = [...prev, {
+            if (parsed.type === 'experiment_complete' && parsed.results) {
+              setIsSimulating(false);
+              if (simulationTimeoutRef.current) clearTimeout(simulationTimeoutRef.current);
+              setLastExperiment({
+                strategy: currentExperimentRef.current.strategy,
+                seed: currentExperimentRef.current.seed,
+                duration: currentExperimentRef.current.duration,
+                results: parsed.results,
+              });
+              setData(parsed);
+            } else {
+              setData(parsed);
+              if (parsed.performance && parsed.market) {
+                setHistory((prev) => {
+                  const newHist = [
+                    ...prev,
+                    {
                       time: parsed.step,
                       pnl: parsed.performance.total_pnl,
                       inventory: parsed.strategy.inventory,
-                      mid: parsed.market.mid_price
-                  }];
+                      mid: parsed.market.mid_price,
+                    },
+                  ];
                   return newHist.slice(-100);
-               });
+                });
+              }
             }
-          } catch(e) {
-            console.error("Failed to parse engine data JSON", message.data, e);
+          } catch (e) {
+            console.error('[WS] Failed to parse engine_data JSON', message.data, e);
           }
         } else if (message.type === 'engine_log') {
-          console.log("Engine log:", message.data);
+          console.log('[Engine Log]', message.data);
+          if (message.data?.includes('Simulation process finished') || message.data?.includes('Engine error')) {
+            setIsSimulating(false);
+          }
         }
-      } catch(e) {
-        console.error("Failed to parse message JSON", event.data, e);
+      } catch (e) {
+        console.error('[WS] Failed to parse message JSON', event.data, e);
       }
     };
 
     ws.onerror = (error) => {
-      console.error("WebSocket Error:", error);
+      console.error('[WS] WebSocket error:', error);
+      setIsConnected(false);
+      setIsSimulating(false);
     };
 
     ws.onclose = () => {
       setIsConnected(false);
-      console.log('WebSocket disconnected. Reconnecting in 2s...');
+      setIsSimulating(false);
+      console.log('[WS] Disconnected. Reconnecting in 2s...');
       reconnectTimeoutRef.current = setTimeout(() => {
         connectWebSocket();
       }, 2000);
@@ -70,43 +115,113 @@ export default function App() {
     connectWebSocket();
     return () => {
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (simulationTimeoutRef.current) clearTimeout(simulationTimeoutRef.current);
       if (wsRef.current) wsRef.current.close();
     };
   }, []);
 
-
-  const renderView = () => {
-    switch(activeView) {
-      case 'MARKET': return <MarketView data={data} history={history} isConnected={isConnected} />;
-      case 'RESEARCH': return <ResearchLabView setHistory={setHistory} />;
-      default: return <MarketView data={data} history={history} isConnected={isConnected} />;
+  const handleStartExperiment = (params: { strategy: string; seed: number; duration: number }) => {
+    currentExperimentRef.current = params;
+    setHistory([]);
+    if (params.duration > 0) {
+      setIsSimulating(true);
+      // Failsafe timeout in case simulation runs unexpectedly long
+      if (simulationTimeoutRef.current) clearTimeout(simulationTimeoutRef.current);
+      simulationTimeoutRef.current = setTimeout(() => {
+        setIsSimulating(false);
+      }, 15000);
+    } else {
+      setIsSimulating(false);
     }
-  }
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'START_EXPERIMENT',
+          ...params,
+        })
+      );
+    } else {
+      console.warn('[WS] WebSocket not open, cannot send START_EXPERIMENT');
+      setIsSimulating(false);
+    }
+  };
 
   return (
-    <div className="h-screen flex flex-col p-4 bg-[#0a0a0a]">
-      <header className="flex justify-between items-center mb-4 border-b border-[#262626] pb-2">
-        <h1 className="text-xl font-bold tracking-tighter">ADAPTIVE MARKET-MAKING ENGINE</h1>
-        <div className="flex gap-4">
-          {views.map(view => (
-            <button 
-              key={view} 
-              onClick={() => setActiveView(view)}
-              className={`px-3 py-1 text-sm ${activeView === view ? 'bg-[#262626] text-white' : 'text-[#737373] hover:text-white'}`}
-            >
-              {view}
-            </button>
-          ))}
+    <div className="h-screen w-screen bg-[#080808] text-[#e0e0e0] font-mono flex flex-col overflow-hidden select-none">
+      {/* Header Bar */}
+      <header className="h-14 border-b border-[#222222] bg-[#0c0c0c] px-4 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm" />
+            <span className="font-bold tracking-wider text-sm text-white flex items-center gap-2">
+              ADAPTIVE MARKET-MAKING ENGINE
+              <span className="hidden sm:inline-block text-[10px] font-normal px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400">
+                QUANT TERMINAL v1.0
+              </span>
+            </span>
+          </div>
         </div>
-        <div className={`terminal-text ${isConnected ? "text-green-500" : "text-red-500"}`}>
-            {isConnected ? "● SIMULATION RUNNING" : "● DISCONNECTED"}
+
+        {/* View Switcher Tabs */}
+        <div className="flex items-center gap-1 bg-[#141414] p-1 rounded border border-[#222222]">
+          {views.map((v) => {
+            const Icon = v.icon;
+            const isActive = activeView === v.id;
+            return (
+              <button
+                key={v.id}
+                onClick={() => setActiveView(v.id)}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-neutral-800 text-white font-bold shadow-sm'
+                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-[#1c1c1c]'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-400' : 'text-neutral-500'}`} />
+                <span>{v.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Engine Status Badge in Top-Right */}
+        <div className="flex items-center gap-3">
+          {/* Active Status Badge */}
+          <div className="flex items-center gap-2">
+            {isSimulating ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-950/40 border border-amber-900/60 text-amber-400 text-xs font-semibold">
+                <RefreshCw className="w-3 h-3 animate-spin text-amber-400" />
+                <span>RUNNING SIMULATION...</span>
+              </div>
+            ) : isConnected ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                <span>ENGINE ONLINE</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-rose-950/40 border border-rose-900/60 text-rose-400 text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+                <span>DISCONNECTED</span>
+              </div>
+            )}
+          </div>
         </div>
       </header>
-      <main className="flex-1 overflow-hidden">
-        <div className="h-full border border-[#262626] p-4">
-          <h2 className="text-lg mb-4">{activeView} VIEW</h2>
-          {renderView()}
-        </div>
+
+      {/* Main Workspace with Independent Scrollable Views */}
+      <main className="flex-1 overflow-hidden p-3 min-h-0">
+        {activeView === 'MARKET' ? (
+          <MarketView data={data} history={history} isConnected={isConnected} />
+        ) : (
+          <ResearchLabView
+            onStartExperiment={handleStartExperiment}
+            lastExperiment={lastExperiment}
+            isConnected={isConnected}
+            isSimulating={isSimulating}
+            setHistory={setHistory}
+          />
+        )}
       </main>
     </div>
   );
