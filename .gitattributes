@@ -1,0 +1,7 @@
+# GitHub Linguist Configuration
+# Ensure TypeScript and C++ are recognized as the primary languages of this repository
+
+# Scripts and build helpers
+scripts/* linguist-vendored
+*.lock linguist-vendored
+*.json linguist-documentation
