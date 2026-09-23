@@ -224,11 +224,11 @@ export default function App() {
       </header>
 
       {/* Main Workspace with Independent Scrollable Views */}
-      <main className="flex-1 overflow-hidden p-3 min-h-0">
-        {activeView === 'MARKET' && (
+      <main className="flex-1 overflow-hidden p-3 min-h-0 relative">
+        <div className={`absolute inset-3 overflow-hidden ${activeView === 'MARKET' ? 'block' : 'hidden'}`}>
           <MarketView data={data} history={history} isConnected={isConnected} />
-        )}
-        {activeView === 'RESEARCH' && (
+        </div>
+        <div className={`absolute inset-3 overflow-hidden ${activeView === 'RESEARCH' ? 'block' : 'hidden'}`}>
           <ResearchLabView
             onStartExperiment={handleStartExperiment}
             lastExperiment={lastExperiment}
@@ -236,13 +236,13 @@ export default function App() {
             isSimulating={isSimulating}
             setHistory={setHistory}
           />
-        )}
-        {activeView === 'AUTOPSY' && (
+        </div>
+        <div className={`absolute inset-3 overflow-hidden ${activeView === 'AUTOPSY' ? 'block' : 'hidden'}`}>
           <AutopsyView data={data} history={history} isConnected={isConnected} />
-        )}
-        {activeView === 'STRATEGY' && (
+        </div>
+        <div className={`absolute inset-3 overflow-hidden ${activeView === 'STRATEGY' ? 'block' : 'hidden'}`}>
           <StrategyView data={data} isConnected={isConnected} onUpdateParams={handleUpdateParams} />
-        )}
+        </div>
       </main>
     </div>
   );
