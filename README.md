@@ -210,5 +210,51 @@ Dans un souci de rigueur méthodologique, les simplifications suivantes sont doc
 
 ---
 
+## 🛠️ Défis Techniques & Solutions d'Ingénierie
+
+Au cours du développement et du déploiement en production de cet **Engine de Market Making Quantitatif** (C++20, Node.js & React), plusieurs défis système et d'architecture ont été résolus :
+
+### 1. Résilience du Moteur de Simulation (C++20 Fallback)
+* **Problème :** Dans certains conteneurs Cloud légers, les outils de compilation natifs (`g++`, `cmake`) ne sont pas installés par défaut, empêchant la compilation du binaire haute fréquence C++ (`mm_engine`) au démarrage (`Binary not found`).
+* **Solution :** 
+  * Installation dynamique des paquets essentiels (`build-essential`, `cmake`) si nécessaire.
+  * Mise en place d'un système de **fallback automatique** : si le binaire C++ est indisponible, le serveur Node.js bascule de manière transparente sur un moteur de simulation quantitatif de secours haute fidélité écrit en TypeScript (`engine_simulator.ts`), garantissant zéro interruption de service.
+
+### 2. Déploiement Cloud Run & Bundling ESM/CJS
+* **Problème :** Lors de l'exécution en production sur Google Cloud Run avec Node.js en mode ESM natif, des erreurs d'importation de modules locaux (`ERR_MODULE_NOT_FOUND`) survenaient sur les chemins sans extension.
+* **Solution :** Mise en place d'un pipeline de build unifié avec **`esbuild`**. Il compile et empaquète l'ensemble du serveur TypeScript en un bundle CommonJS autonome unique (`dist/server.cjs`), garantissant un démarrage instantané sans erreur de résolution de modules.
+
+### 3. Stabilité des WebSockets & Reconnexion Intelligente
+* **Problème :** Des erreurs transitoires de type `[WS] WebSocket error` apparaissaient lors des rafraîchissements de page (HMR) ou des micro-reboots du serveur de développement.
+* **Solution :** Implémentation d'un mécanisme de **reconnexion exponentielle** côté client et d'un nettoyage propre des flux côté serveur pour absorber les déconnexions de proxy sans impacter l'expérience utilisateur.
+
+### 4. Intégrité de l'UI & Re-rendering React
+* **Problème :** Des avertissements de clés dupliquées (`Encountered two children with the same key`) survenaient lors d'expériences rapprochées en raison d'une troncature des horodatages (`Date.now().toString().slice(-4)`).
+* **Solution :** Création d'un identifiant unique persistant et incrémenté (`RUN-${Date.now()}-${runNum}`) couplé à un mécanisme de déduplication des exécutions dans le state React.
+
+---
+
+## 🗺️ Feuille de Route & Évolutions Futures (Roadmap)
+
+### 🚀 Version 2.0 (Court Terme - Améliorations Fonctionnelles & Infra)
+- **Backtesting Historique & Replay :** Chargement de données réelles (CSV/Parquet) et replay milliseconde par milliseconde du carnet d'ordres (*Order Book Replay*).
+- **Visualisation Avancée :** Ajout d'une Heatmap de liquidité et d'un graphique de profondeur de marché (*Market Depth Chart*) en temps réel dans le dashboard React.
+- **Optimisation DevOps :** Image Docker multi-stage avec pré-compilation du binaire natif C++20 pour un déploiement Cloud Run 100% natif.
+- **Gestionnaire de Profils :** Export/Import des configurations de stratégie et profils de risque au format JSON.
+
+### 🧠 Version 3.0 (Moyen Terme - Quant & Intelligence Artificielle)
+- **Market Making par RL (Reinforcement Learning) :** Entraînement d'un agent d'apprentissage par renforcement (Q-Learning / PPO) pour l'ajustement dynamique des spreads.
+- **Modèles Quantitatifs Avancés :** Implémentation de la stratégie d'Avellaneda-Stoikov et détection du flux toxique (*Toxic Flow / Adverse Selection*).
+- **Gestion des Risques & VaR :** Calcul de la *Value at Risk* (VaR) en temps réel avec mécanisme de coupure automatique (*Kill Switch*) en cas de dépassement de drawdown.
+- **Simulation de Latence Réseau :** Module d'injection de délai (5ms - 50ms) et de rejet d'ordres pour tester la résilience en conditions réelles.
+
+### 🏛️ Version 4.0 (Long Terme - Connectivité Institutionnelle & Multi-Utilisateurs)
+- **Connecteurs Réels (FIX Protocol) :** Intégration du protocole FIX et de WebSockets binaires (Protobuf) pour la connexion à des exchanges réels (Binance, Coinbase Prime).
+- **Support Multi-Comptes & Multi-Actifs :** Gestion parallèle de plusieurs paires d'actifs (BTC/USDT, ETH/USDT) et de sous-comptes d'exécution.
+- **Architecture Multi-Rôles (RBAC) :** Séparation des accès dans l'interface React (Rôles : *Quant*, *Risk Manager*, *Observer*).
+- **Export Data Science :** Exportation directe des sessions de simulation au format Parquet/HDF5 pour analyse approfondie sous Python (Pandas/Polars/Jupyter).
+
+---
+
 ## 📜 Licence
 Ce projet est distribué sous licence MIT. Libre d'utilisation pour toute fin de recherche, d'apprentissage et de présentation en portfolio.

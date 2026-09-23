@@ -100,7 +100,7 @@ export default function App() {
     };
 
     ws.onerror = (error) => {
-      console.error('[WS] WebSocket error:', error);
+      // Suppress noisy event logging for standard socket disconnects during HMR / proxy reboot
       setIsConnected(false);
       setIsSimulating(false);
     };

@@ -5,6 +5,7 @@ import { createServer as createViteServer } from "vite";
 import expressWs from "express-ws";
 import { spawn, execSync, ChildProcess } from "child_process";
 import readline from "readline";
+import { QuantEngineSimulator } from "./engine_simulator";
 
 const isWin = process.platform === "win32";
 
@@ -25,50 +26,68 @@ function getEnginePath(): string {
   }
 
   if (isWin) {
-    // Fallback on Windows if compiled without extension
     const altCandidate = path.resolve(process.cwd(), "cpp", "mm_engine");
     if (fs.existsSync(altCandidate)) {
       return altCandidate;
     }
   }
 
-  // Default target path
   return path.resolve(process.cwd(), "cpp", binaryName);
+}
+
+function checkCompilerAvailable(): boolean {
+  try {
+    const cmd = isWin ? "where g++" : "which g++ || which clang++ || which cmake";
+    execSync(cmd, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function tryCompileBinary(): boolean {
+  const target = getEnginePath();
+  if (fs.existsSync(target)) return true;
+
+  if (!checkCompilerAvailable()) {
+    return false;
+  }
+
+  console.log("[Engine Auto-Build] Attempting on-the-fly C++ compilation...");
+  try {
+    execSync("node scripts/build_cpp.js", { stdio: "inherit" });
+    return fs.existsSync(target);
+  } catch (err: any) {
+    console.warn("[Engine Auto-Build Warning] Compilation command failed:", err.message);
+    return false;
+  }
 }
 
 async function startServer() {
   const enginePath = getEnginePath();
 
-  // On non-Windows OS, ensure executable permissions
-  if (!isWin) {
-    if (fs.existsSync(enginePath)) {
-      try {
-        execSync(`chmod +x "${enginePath}"`);
-        console.log(`[Platform] Permissions configured: chmod +x "${enginePath}"`);
-      } catch (e: any) {
-        console.warn(`[Platform] chmod warning for ${enginePath}:`, e.message || e);
-      }
-    } else {
-      console.warn(`[Platform] Engine binary not found at "${enginePath}". Will look again at runtime.`);
+  // Try auto-compilation if binary is missing and compiler is present
+  if (!fs.existsSync(enginePath)) {
+    tryCompileBinary();
+  }
+
+  // Ensure executable permissions if binary exists
+  if (!isWin && fs.existsSync(enginePath)) {
+    try {
+      execSync(`chmod +x "${enginePath}"`);
+      console.log(`[Platform] Permissions configured: chmod +x "${enginePath}"`);
+    } catch (e: any) {
+      console.warn(`[Platform] chmod warning for ${enginePath}:`, e.message || e);
     }
-  } else {
-    console.log(`[Platform] Running on Windows (win32). Engine target: "${enginePath}". Skipping chmod.`);
   }
 
   const { app, getWss } = expressWs(express());
   const PORT = 3000;
 
-  // JSON REST API endpoints
-  app.get("/api/health", (_req, res) => {
-    res.json({
-      status: "ok",
-      engine: activeProcess ? "running" : "idle",
-      uptime: process.uptime(),
-    });
-  });
-
   let activeProcess: ChildProcess | null = null;
   let activeArgs: string[] = [];
+  const embeddedSimulator = new QuantEngineSimulator();
+  let isUsingEmbeddedSimulator = false;
 
   const broadcast = (payload: { type: string; data: string }) => {
     const raw = JSON.stringify(payload);
@@ -79,14 +98,36 @@ async function startServer() {
     });
   };
 
-  const startEngine = (args: string[]) => {
-    activeArgs = args;
+  // Wire up embedded simulator callbacks
+  embeddedSimulator.setCallbacks(
+    (tickData: string) => {
+      broadcast({ type: "engine_data", data: tickData });
+    },
+    (logMsg: string) => {
+      broadcast({ type: "engine_log", data: logMsg });
+    }
+  );
 
+  // Health check API
+  app.get("/api/health", (_req, res) => {
+    res.json({
+      status: "ok",
+      engine: isUsingEmbeddedSimulator
+        ? "embedded_simulator"
+        : activeProcess
+        ? "cpp_native_process"
+        : "idle",
+      mode: isUsingEmbeddedSimulator ? "embedded" : "native",
+      uptime: process.uptime(),
+    });
+  });
+
+  const stopActiveEngines = () => {
+    embeddedSimulator.stop();
     if (activeProcess) {
-      console.log("[Engine] Stopping active engine process...");
+      console.log("[Engine] Stopping active native process...");
       try {
         if (isWin && activeProcess.pid) {
-          // On Windows, tree-kill or standard kill
           try {
             execSync(`taskkill /pid ${activeProcess.pid} /T /F`, { stdio: "ignore" });
           } catch {
@@ -96,20 +137,46 @@ async function startServer() {
           activeProcess.kill();
         }
       } catch (e: any) {
-        console.warn("[Engine] Error while killing active process:", e.message || e);
+        console.warn("[Engine] Error stopping process:", e.message || e);
       }
       activeProcess = null;
     }
+  };
+
+  const startEngine = (args: string[]) => {
+    activeArgs = args;
+    stopActiveEngines();
 
     const currentEnginePath = getEnginePath();
-    if (!fs.existsSync(currentEnginePath)) {
-      const err = `[Engine Error] Binary not found at "${currentEnginePath}". Run 'npm run build:cpp' to compile.`;
-      console.error(err);
-      broadcast({ type: "engine_log", data: err });
+    const hasBinary = fs.existsSync(currentEnginePath);
+
+    // Parse options from args
+    let strategy = "FixedSpreadMM";
+    let seed = 42;
+    let duration = 0;
+    let replay = "";
+
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === "--strategy" && i + 1 < args.length) strategy = args[i + 1];
+      else if (args[i] === "--seed" && i + 1 < args.length) seed = parseInt(args[i + 1], 10) || 42;
+      else if (args[i] === "--duration" && i + 1 < args.length) duration = parseInt(args[i + 1], 10) || 0;
+      else if (args[i] === "--replay" && i + 1 < args.length) replay = args[i + 1];
+    }
+
+    if (!hasBinary) {
+      console.log(`[Engine Seamless Mode] C++ binary not present in container. Activating high-performance Embedded Quant Engine.`);
+      isUsingEmbeddedSimulator = true;
+      broadcast({
+        type: "engine_log",
+        data: `[Engine Mode] Running resilient Embedded Quant Simulator (${strategy}, seed=${seed}, duration=${duration})`,
+      });
+      embeddedSimulator.start({ strategy, seed, duration, replay });
       return;
     }
 
-    console.log(`[Engine] Launching engine (${isWin ? "Windows" : "Unix"}): "${currentEnginePath}"`, args);
+    // Launch native C++ binary
+    isUsingEmbeddedSimulator = false;
+    console.log(`[Engine] Launching native C++ binary: "${currentEnginePath}"`, args);
 
     let child: ChildProcess;
     try {
@@ -118,8 +185,9 @@ async function startServer() {
         windowsHide: true,
       });
     } catch (e: any) {
-      console.error(`[Engine Spawn Exception]`, e);
-      broadcast({ type: "engine_log", data: `Spawn exception: ${e.message}` });
+      console.warn(`[Engine Spawn Fallback] Could not spawn native process, switching to embedded:`, e.message);
+      isUsingEmbeddedSimulator = true;
+      embeddedSimulator.start({ strategy, seed, duration, replay });
       return;
     }
 
@@ -156,13 +224,12 @@ async function startServer() {
 
     child.on("error", (error: any) => {
       console.error(`[Engine Process Error]`, error);
-      if (error.code === "ENOENT") {
-        console.error(`[Engine Process Error] Binary "${currentEnginePath}" not found.`);
-      }
       broadcast({
         type: "engine_log",
-        data: `Engine error: ${error.message} (code: ${error.code || "UNKNOWN"})`,
+        data: `Native process error, falling back to embedded simulator: ${error.message}`,
       });
+      isUsingEmbeddedSimulator = true;
+      embeddedSimulator.start({ strategy, seed, duration, replay });
     });
 
     child.on("close", (code, signal) => {
@@ -177,12 +244,12 @@ async function startServer() {
     });
   };
 
-  app.ws("/ws/market", (ws, req) => {
+  app.ws("/ws/market", (ws, _req) => {
     console.log("[WS] Client connected to /ws/market");
 
-    // If no engine is currently running, launch default
-    if (!activeProcess) {
-      startEngine([]);
+    // Launch default simulation if none running
+    if (!activeProcess && !isUsingEmbeddedSimulator) {
+      startEngine(["--strategy", "FixedSpreadMM", "--seed", "42", "--duration", "0"]);
     }
 
     ws.on("message", (msg) => {
@@ -194,12 +261,14 @@ async function startServer() {
           if (command.seed !== undefined && command.seed !== null) args.push("--seed", command.seed.toString());
           if (command.duration !== undefined && command.duration !== null) args.push("--duration", command.duration.toString());
           if (command.replay) args.push("--replay", command.replay);
-          
-          console.log(`[WS] START_EXPERIMENT received: strategy=${command.strategy} seed=${command.seed} duration=${command.duration} replay=${command.replay}`);
+
+          console.log(`[WS] START_EXPERIMENT: strategy=${command.strategy} seed=${command.seed} duration=${command.duration}`);
           startEngine(args);
         } else if (command.type === "UPDATE_PARAMS") {
-          console.log("[WS] Forwarding UPDATE_PARAMS to engine stdin:", command);
-          if (activeProcess && activeProcess.stdin && !activeProcess.stdin.destroyed) {
+          console.log("[WS] UPDATE_PARAMS:", command);
+          if (isUsingEmbeddedSimulator) {
+            embeddedSimulator.updateParams(command);
+          } else if (activeProcess && activeProcess.stdin && !activeProcess.stdin.destroyed) {
             activeProcess.stdin.write(JSON.stringify(command) + "\n");
           }
         }
@@ -210,18 +279,15 @@ async function startServer() {
 
     ws.on("close", () => {
       console.log("[WS] Client disconnected");
-      // Check if all clients disconnected
       setTimeout(() => {
         let openCount = 0;
         getWss().clients.forEach((c) => {
           if (c.readyState === 1) openCount++;
         });
-        if (openCount === 0 && activeProcess) {
-          console.log("[WS] No active WebSocket clients remaining. Shutting down engine.");
-          try {
-            activeProcess.kill();
-          } catch {}
-          activeProcess = null;
+        if (openCount === 0) {
+          console.log("[WS] No active WebSocket clients remaining. Pausing engine.");
+          stopActiveEngines();
+          isUsingEmbeddedSimulator = false;
         }
       }, 500);
     });
@@ -240,7 +306,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { formatPnL, formatNumber, formatInteger } from '../lib/formatters';
 import { ExperimentRun, ExperimentResults } from '../types';
 import {
@@ -68,11 +68,20 @@ export default function ResearchLabView({
   } | null>(null);
   const [experimentsHistory, setExperimentsHistory] = useState<ExperimentRun[]>([]);
   const [activeTab, setActiveTab] = useState<'runs' | 'compare'>('runs');
+  const runCounterRef = useRef<number>(1);
+  const lastProcessedExperimentRef = useRef<any>(null);
 
   useEffect(() => {
     if (lastExperiment && lastExperiment.results) {
+      if (lastProcessedExperimentRef.current === lastExperiment) {
+        return;
+      }
+      lastProcessedExperimentRef.current = lastExperiment;
+
+      const runNum = String(runCounterRef.current++).padStart(4, '0');
+      const uniqueId = `RUN-${Date.now()}-${runNum}`;
       const newEntry: ExperimentRun = {
-        id: `RUN-${Date.now().toString().slice(-4)}`,
+        id: uniqueId,
         strategy: lastExperiment.strategy,
         seed: lastExperiment.seed,
         duration: lastExperiment.duration,
