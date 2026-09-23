@@ -48,7 +48,7 @@ This project provides a comprehensive quantitative laboratory environment simula
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
-> **Positioning Note:** This project serves as a **research terminal and technical demonstration** (quantitative portfolio). It is not designed to be deployed directly on live exchange production feeds without adaptation to specific hardware constraints (DMA, FPGA, kernel-bypass).
+> **Positioning Note:** This project serves as a research terminal and technical demonstration (quantitative portfolio). It is not designed to be deployed directly on live exchange production feeds without adaptation to specific hardware constraints (DMA, FPGA, kernel-bypass).
 
 ---
 
@@ -94,23 +94,26 @@ The engine integrates 4 quoting models with distinct mathematical properties:
 
 ### 1. `FixedSpreadMM` (Baseline)
 - **Principle:** Benchmark strategy placing symmetric limit buy and sell orders around the mid-price:
-  $$P_{bid} = P_{mid} - \frac{\delta}{2}, \quad P_{ask} = P_{mid} + \frac{\delta}{2}$$
+  - Bid Price: `P_bid = P_mid - (delta / 2)`
+  - Ask Price: `P_ask = P_mid + (delta / 2)`
 - **Property:** Ideal in stationary markets with low volatility, but vulnerable to directional drift and toxic inventory accumulation.
 
 ### 2. `InventoryAwareMM` (Inventory Control)
-- **Principle:** Inspired by the Avellaneda-Stoikov model, it applies an asymmetric skew to the reservation price based on the current position $q$:
-  $$P_{skewed} = P_{mid} - (\gamma \cdot q)$$
-  $$P_{bid} = P_{skewed} - \frac{\delta}{2}, \quad P_{ask} = P_{skewed} + \frac{\delta}{2}$$
-- **Objective:** When long ($q > 0$), it lowers its quotes to favor selling and discourage buying, dynamically driving inventory back towards 0.
+- **Principle:** Inspired by the Avellaneda-Stoikov model, it applies an asymmetric skew to the reservation price based on the current position `q`:
+  - Reservation Skewed Price: `P_skewed = P_mid - (gamma * q)`
+  - Final Quotes: `P_bid = P_skewed - (delta / 2)`, `P_ask = P_skewed + (delta / 2)`
+- **Objective:** When long (`q > 0`), it lowers its quotes to favor selling and discourage buying, dynamically driving inventory back towards 0.
 
 ### 3. `VolatilityAdaptiveMM` (Volatility Protection)
-- **Principle:** Continuously adjusts half-spread and order size based on realized volatility over the last 50 ticks ($\sigma_t$):
-  $$\delta_t = \delta_0 \cdot (1 + 10 \cdot \sigma_t), \quad Q_t = \max\left(1, \left\lfloor \frac{Q_0}{1 + 5 \cdot \sigma_t} \right\rfloor\right)$$
+- **Principle:** Continuously adjusts half-spread and order size based on realized volatility over the last 50 ticks (`sigma_t`):
+  - Spread: `delta_t = delta_0 * (1 + 10 * sigma_t)`
+  - Order Size: `Q_t = max(1, floor(Q_0 / (1 + 5 * sigma_t)))`
 - **Objective:** Widens quotes during turbulent regimes to compensate for liquidity risk and reduces exposed size.
 
 ### 4. `RegimeAdaptiveMM` (Regime Switching)
-- **Principle:** Microstructural state machine detecting regime transitions according to a critical volatility threshold:
-  $$\text{Regime} = \begin{cases} \text{HIGH\_VOL (VolatilityAdaptiveMM)}, & \text{if } \sigma_t > \theta \\ \text{CALM (FixedSpreadMM)}, & \text{otherwise} \end{cases}$$
+- **Principle:** Microstructural state machine detecting regime transitions according to a critical volatility threshold `theta`:
+  - If `sigma_t > theta`: High Volatility Regime (`VolatilityAdaptiveMM`)
+  - Otherwise: Calm Regime (`FixedSpreadMM`)
 - **Objective:** Maximizes spread capture rate in calm regimes while automatically activating the protective shield upon turbulence onset.
 
 ---
@@ -119,17 +122,17 @@ The engine integrates 4 quoting models with distinct mathematical properties:
 
 ### Risk Management (Risk Engine)
 - **Maximum Exposure Control:** Every order proposed by the strategy is subject to a pre-trade allocation test (`is_order_allowed`):
-  $$|q_{\text{current}} + \Delta q_{\text{order}}| \le Q_{\max}$$
+  `|q_current + delta_q_order| <= Q_max`
 - **Kill-Switch:** Immediate quote locking if a statutory limit or anomaly is detected.
 
 ### Real-Time P&L Accounting
 - **Realized P&L:** Net cash flow from executed buy/sell trades:
-  $$\text{Cash}_t = \sum_{\text{sales}} (P \times Q) - \sum_{\text{purchases}} (P \times Q)$$
+  `Cash_t = Sum(Sales P * Q) - Sum(Purchases P * Q)`
 - **Unrealized P&L (Mark-to-Market):** Valuation of residual position at the prevailing mid-price:
-  $$\text{Unrealized}_t = q_t \times P_{mid, t}$$
+  `Unrealized_t = q_t * P_mid_t`
 - **Total P&L & Max Drawdown:**
-  $$\text{Total P\&L}_t = \text{Cash}_t + \text{Unrealized}_t$$
-  $$\text{Drawdown}_t = \max_{s \le t}(\text{Total P\&L}_s) - \text{Total P\&L}_t$$
+  `Total P&L_t = Cash_t + Unrealized_t`
+  `Drawdown_t = max(Total P&L_s for s <= t) - Total P&L_t`
 
 ---
 
@@ -137,8 +140,7 @@ The engine integrates 4 quoting models with distinct mathematical properties:
 
 - **L2 Order Book Visualization with Depth Gauges:**
   - Displays top 5 Bids and Asks with proportional horizontal volume bars.
-  - Real-time **Order Book Imbalance (OBI)** calculation:
-    $$OBI = \frac{V_{bid} - V_{ask}}{V_{bid} + V_{ask}} \in [-1, 1]$$
+  - Real-time **Order Book Imbalance (OBI)** calculation: `OBI = (V_bid - V_ask) / (V_bid + V_ask)`.
 - **High-Frequency Streaming:** 20 ms interval WebSocket refresh without browser memory bloating.
 - **Micro-Interactions & Monitoring:**
   - Engine status badges (`ENGINE ONLINE`, `RUNNING SIMULATION...`, `DISCONNECTED`).
@@ -246,7 +248,7 @@ During the development and production deployment of this **Quantitative Market-M
 
 ### Version 3.0 (Medium Term - Quant & Artificial Intelligence)
 - **RL Market Making (Reinforcement Learning):** Training a reinforcement learning agent (Q-Learning / PPO) for dynamic spread adjustment.
-- **Advanced Quantitative Models:** Implementation of the Avellaneda-Stoikov strategy and Toxic Flow / Adverse Selection detection.
+- **Advanced Quantitative Models:** Implementation of the Avellaneda-Stoikov and Toxic Flow / Adverse Selection detection.
 - **Risk Management & VaR:** Real-time Value at Risk (VaR) calculation with an automatic Kill Switch mechanism upon drawdown breach.
 - **Network Latency Simulation:** Delay injection module (5ms - 50ms) and order rejection simulation to test real-world resilience.
 
