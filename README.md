@@ -5,258 +5,258 @@
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=flat&logo=vite)](https://vitejs.dev/)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-blue)](#installation--démarrage-rapide)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-blue)](#installation--quick-start)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> **Plateforme de recherche quantitative et de simulation haute performance pour l'étude, l'évaluation et le stress-testing de stratégies de tenue de marché (Market-Making) adaptatives en micro-structure de marché.**
+> **High-performance quantitative research and simulation platform for studying, evaluating, and stress-testing adaptive market-making strategies in market microstructure.**
 
 ---
 
-## Sommaire
-1. [Aperçu & Vision Quantitative](#aperçu--vision-quantitative)
-2. [Architecture Technique du Système](#architecture-technique-du-système)
-3. [Stratégies de Market-Making Implémentées](#stratégies-de-market-making-implémentées)
-4. [Moteur de Risque & Modèle Comptable](#moteur-de-risque--modèle-comptable)
-5. [Fonctionnalités du Terminal](#fonctionnalités-du-terminal)
-6. [Installation & Démarrage Rapide](#installation--démarrage-rapide)
-7. [Reproductibilité & Research Lab (Déterminisme)](#reproductibilité--research-lab-déterminisme)
-8. [Hypothèses & Limites du Modèle (Quantitative Disclaimer)](#hypothèses--limites-du-modèle-quantitative-disclaimer)
-9. [Défis Techniques & Solutions d'Ingénierie](#défis-techniques--solutions-dingénierie)
-10. [Feuille de Route & Évolutions Futures (Roadmap)](#feuille-de-route--évolutions-futures-roadmap)
+## Table of Contents
+1. [Overview & Quantitative Vision](#overview--quantitative-vision)
+2. [System Architecture](#system-architecture)
+3. [Implemented Market-Making Strategies](#implemented-market-making-strategies)
+4. [Risk Engine & Accounting Model](#risk-engine--accounting-model)
+5. [Terminal Features](#terminal-features)
+6. [Installation & Quick Start](#installation--quick-start)
+7. [Reproducibility & Research Lab (Determinism)](#reproducibility--research-lab-determinism)
+8. [Model Assumptions & Limitations (Quantitative Disclaimer)](#model-assumptions--limitations-quantitative-disclaimer)
+9. [Technical Challenges & Engineering Solutions](#technical-challenges--engineering-solutions)
+10. [Roadmap & Future Evolution](#roadmap--future-evolution)
 
 ---
 
-## Aperçu & Vision Quantitative
+## Overview & Quantitative Vision
 
-Dans les marchés électroniques contemporains, les market-makers sont exposés à deux risques majeurs :
-1. **Le risque de sélection adverse (*Adverse Selection*) :** se faire exécuter par des intervenants informés lorsque le prix s'apprête à décaler.
-2. **Le risque d'inventaire (*Inventory Risk*) :** accumuler une position nette directionnelle non désirée lors de déséquilibres d'ordres prolongés.
+In modern electronic markets, market makers are exposed to two major risks:
+1. **Adverse Selection Risk:** Executing against informed traders right before a price jump or drift.
+2. **Inventory Risk:** Accumulating an undesired directional net position during prolonged order imbalances.
 
-Ce projet fournit un environnement de laboratoire quantitatif complet simulant un carnet d'ordres à cours limité (Limit Order Book - L2) à haute fréquence. Il permet d'étudier la réponse dynamique de différentes stratégies de cotation face à un flux d'ordres stochastique, en observant en direct l'impact sur le carnet d'ordres, l'exposition nette, le P&L mark-to-market et le drawdown.
+This project provides a comprehensive quantitative laboratory environment simulating a high-frequency Limit Order Book (L2). It enables researchers to study the dynamic response of various quoting strategies under stochastic order flow, observing in real time the impact on the order book, net exposure, mark-to-market P&L, and drawdown.
 
 ```
-                    BOUCLE DE SIMULATION QUANTITATIVE
+                    QUANTITATIVE SIMULATION LOOP
  ┌────────────────────────────────────────────────────────────────────────┐
  │                                                                        │
- │  Flux Stochastique      Limit Order Book        Stratégies Adaptatives │
+ │  Stochastic Flow          Limit Order Book        Adaptive Strategies  │
  │  (Noise / Informed) ──► (L2 Matching Engine) ──► (Skew & Spread)       │
  │                               ▲                         │              │
  │                               │                         ▼              │
- │                          Comptabilité P&L          Risk Engine         │
+ │                          P&L Accounting            Risk Engine         │
  │                        (MtM, Realized, DD)  ◄── (Position & Exposure)  │
  │                                                                        │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
-> **Note de positionnement :** Ce projet a vocation de **terminal de recherche et de démonstration technique** (portfolio quantitatif). Il n'est pas conçu pour être déployé sur des flux de production d'exchange sans adaptation aux contraintes matérielles spécifiques (DMA, FPGA, kernel-bypass).
+> **Positioning Note:** This project serves as a **research terminal and technical demonstration** (quantitative portfolio). It is not designed to be deployed directly on live exchange production feeds without adaptation to specific hardware constraints (DMA, FPGA, kernel-bypass).
 
 ---
 
-## Architecture Technique du Système
+## System Architecture
 
-Le système repose sur un découplage strict en trois couches : performance de calcul native, pont IPC/WebSocket multi-plateforme, et interface de visualisation temps réel.
+The system relies on a strict three-tier decoupling: native compute performance, multi-platform IPC/WebSocket bridge, and real-time visualization interface.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            C++20 CORE ENGINE                                │
-│  - Limit Order Book (LOB) L2 structuré (std::map + FIFO buckets)            │
-│  - Matching Engine (ordres Limit / Market, annulations)                     │
-│  - PRNG Déterministe (std::mt19937_64) pour le générateur de flux           │
-│  - 4 Algorithmes de Quoting Adaptatifs                                      │
-│  - Feature Engine : Mid-price, Spread, OBI (Order Book Imbalance), Micro-Vol│
-│  - Risk Engine : Position Tracking, Exposure Limits & Kill-Switch           │
+│  - Structured L2 Limit Order Book (LOB) (std::map + FIFO buckets)           │
+│  - Matching Engine (Limit / Market orders, cancellations)                   │
+│  - Deterministic PRNG (std::mt19937_64) for flow generation                 │
+│  - 4 Adaptive Quoting Algorithms                                            │
+│  - Feature Engine: Mid-price, Spread, OBI (Order Book Imbalance), Micro-Vol │
+│  - Risk Engine: Position Tracking, Exposure Limits & Kill-Switch            │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │ STDOUT JSON (Line-buffered IPC)
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          NODE.JS BRIDGING SERVER                            │
 │  - Multi-platform Process Supervisor (Windows .exe / Unix binary)           │
-│  - Gestion du cycle de vie des sous-processus et des signaux système        │
-│  - Serveur WebSocket haute fréquence (latence de transmission < 20ms)       │
-│  - Routage bidirectionnel des ordres et paramètres d'expériences            │
+│  - Lifecycle management of child processes and system signals               │
+│  - High-frequency WebSocket server (transmission latency < 20ms)            │
+│  - Bidirectional routing of orders and experiment parameters                │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │ WebSocket (ws://)
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          REACT 19 QUANT TERMINAL                            │
-│  - Market View : Carnet d'ordres temps réel avec jauges de profondeur       │
-│  - Live Charts : Séries temporelles Recharts bi-axes (P&L & Inventaire)     │
-│  - Research Lab : Backtesting déterministe avec tableau comparatif          │
-│  - Chiffres tabulaires (tabular-nums) et typographie monospace stricte      │
+│  - Market View: Real-time order book with depth gauges                      │
+│  - Live Charts: Dual-axis Recharts time series (P&L & Inventory)            │
+│  - Research Lab: Deterministic backtesting with comparative table           │
+│  - Tabular figures (tabular-nums) and strict monospace typography           │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Stratégies de Market-Making Implémentées
+## Implemented Market-Making Strategies
 
-Le moteur intègre 4 modèles de cotation aux propriétés mathématiques distinctes :
+The engine integrates 4 quoting models with distinct mathematical properties:
 
 ### 1. `FixedSpreadMM` (Baseline)
-- **Principe :** Stratégie de référence plaçant des ordres limites d'achat et de vente symétriques autour du mid-price :
+- **Principle:** Benchmark strategy placing symmetric limit buy and sell orders around the mid-price:
   $$P_{bid} = P_{mid} - \frac{\delta}{2}, \quad P_{ask} = P_{mid} + \frac{\delta}{2}$$
-- **Propriété :** Idéal en marché stationnaire à faible volatilité, mais vulnérable au drift directionnel et à l'accumulation toxique d'inventaire.
+- **Property:** Ideal in stationary markets with low volatility, but vulnerable to directional drift and toxic inventory accumulation.
 
-### 2. `InventoryAwareMM` (Contrôle d'Inventaire)
-- **Principe :** Inspiré du modèle d'Avellaneda-Stoikov, il applique un décentrage (*skew*) asymétrique au prix de réserve en fonction de la position courante $q$ :
+### 2. `InventoryAwareMM` (Inventory Control)
+- **Principle:** Inspired by the Avellaneda-Stoikov model, it applies an asymmetric skew to the reservation price based on the current position $q$:
   $$P_{skewed} = P_{mid} - (\gamma \cdot q)$$
   $$P_{bid} = P_{skewed} - \frac{\delta}{2}, \quad P_{ask} = P_{skewed} + \frac{\delta}{2}$$
-- **Objectif :** Lorsqu'il est long ($q > 0$), il abaisse ses prix pour favoriser la vente et décourager les achats, ramenant dynamiquement son inventaire vers 0.
+- **Objective:** When long ($q > 0$), it lowers its quotes to favor selling and discourage buying, dynamically driving inventory back towards 0.
 
-### 3. `VolatilityAdaptiveMM` (Protection contre la Volatilité)
-- **Principe :** Ajuste continuellement le demi-spread et la taille des ordres en fonction de la volatilité réalisée sur les 50 derniers ticks ($\sigma_t$) :
+### 3. `VolatilityAdaptiveMM` (Volatility Protection)
+- **Principle:** Continuously adjusts half-spread and order size based on realized volatility over the last 50 ticks ($\sigma_t$):
   $$\delta_t = \delta_0 \cdot (1 + 10 \cdot \sigma_t), \quad Q_t = \max\left(1, \left\lfloor \frac{Q_0}{1 + 5 \cdot \sigma_t} \right\rfloor\right)$$
-- **Objectif :** Élargit les cotations lors des régimes agités pour compenser le risque de liquidité et réduit la taille exposée.
+- **Objective:** Widens quotes during turbulent regimes to compensate for liquidity risk and reduces exposed size.
 
-### 4. `RegimeAdaptiveMM` (Changement de Régime)
-- **Principe :** Machine à états microstructurelle détectant les transitions de régime selon un seuil de volatilité critique :
-  $$\text{Régime} = \begin{cases} \text{HIGH\_VOL (VolatilityAdaptiveMM)}, & \text{si } \sigma_t > \theta \\ \text{CALM (FixedSpreadMM)}, & \text{sinon} \end{cases}$$
-- **Objectif :** Maximise le taux de capture de spread en régime calme tout en activant automatiquement le bouclier protecteur dès l'apparition de turbulences.
+### 4. `RegimeAdaptiveMM` (Regime Switching)
+- **Principle:** Microstructural state machine detecting regime transitions according to a critical volatility threshold:
+  $$\text{Regime} = \begin{cases} \text{HIGH\_VOL (VolatilityAdaptiveMM)}, & \text{if } \sigma_t > \theta \\ \text{CALM (FixedSpreadMM)}, & \text{otherwise} \end{cases}$$
+- **Objective:** Maximizes spread capture rate in calm regimes while automatically activating the protective shield upon turbulence onset.
 
 ---
 
-## Moteur de Risque & Modèle Comptable
+## Risk Engine & Accounting Model
 
-### Gestion du Risque (Risk Engine)
-- **Contrôle d'exposition maximale :** Chaque ordre proposé par la stratégie est soumis à un test pré-trade d'allocation (`is_order_allowed`) :
+### Risk Management (Risk Engine)
+- **Maximum Exposure Control:** Every order proposed by the strategy is subject to a pre-trade allocation test (`is_order_allowed`):
   $$|q_{\text{current}} + \Delta q_{\text{order}}| \le Q_{\max}$$
-- **Kill-Switch :** Verrouillage immédiat de la cotation si une limite statutaire ou une anomalie est détectée.
+- **Kill-Switch:** Immediate quote locking if a statutory limit or anomaly is detected.
 
-### Comptabilité P&L en Temps Réel
-- **P&L Réalisé :** Flux de trésorerie net issu des exécutions achat/vente :
-  $$\text{Cash}_t = \sum_{\text{ventes}} (P \times Q) - \sum_{\text{achats}} (P \times Q)$$
-- **P&L Non-Réalisé (Mark-to-Market) :** Évaluation de la position résiduelle au cours moyen du marché :
+### Real-Time P&L Accounting
+- **Realized P&L:** Net cash flow from executed buy/sell trades:
+  $$\text{Cash}_t = \sum_{\text{sales}} (P \times Q) - \sum_{\text{purchases}} (P \times Q)$$
+- **Unrealized P&L (Mark-to-Market):** Valuation of residual position at the prevailing mid-price:
   $$\text{Unrealized}_t = q_t \times P_{mid, t}$$
-- **P&L Total & Max Drawdown :**
+- **Total P&L & Max Drawdown:**
   $$\text{Total P\&L}_t = \text{Cash}_t + \text{Unrealized}_t$$
   $$\text{Drawdown}_t = \max_{s \le t}(\text{Total P\&L}_s) - \text{Total P\&L}_t$$
 
 ---
 
-## Fonctionnalités du Terminal
+## Terminal Features
 
-- **Visualisation du Carnet d'Ordres L2 avec Jauges de Profondeur :**
-  - Affichage des 5 meilleurs Bids et Asks avec barres horizontales proportionnelles au volume relatif.
-  - Calcul en temps réel de l'**Order Book Imbalance (OBI)** :
+- **L2 Order Book Visualization with Depth Gauges:**
+  - Displays top 5 Bids and Asks with proportional horizontal volume bars.
+  - Real-time **Order Book Imbalance (OBI)** calculation:
     $$OBI = \frac{V_{bid} - V_{ask}}{V_{bid} + V_{ask}} \in [-1, 1]$$
-- **Streaming Haute Fréquence :** Rafraîchissement cadencé à 20 ms via WebSocket sans surcharge mémoire navigateur.
-- **Micro-Interactions & Monitoring :**
-  - Badges d'état du moteur (`ENGINE ONLINE`, `RUNNING SIMULATION...`, `DISCONNECTED`).
-  - Indicateur d'exposition au risque et d'inventaire avec code couleur dynamique (Vert/Rouge/Gris).
-- **Research Lab Intégré :**
-  - Backtesting configurable (Stratégie, Seed, Nombre de pas de simulation).
-  - Présélections de benchmarks prêtes à l'emploi (Calibration standard, Stress-test forte volatilité).
-  - Tableau d'historique comparatif des simulations passées.
+- **High-Frequency Streaming:** 20 ms interval WebSocket refresh without browser memory bloating.
+- **Micro-Interactions & Monitoring:**
+  - Engine status badges (`ENGINE ONLINE`, `RUNNING SIMULATION...`, `DISCONNECTED`).
+  - Risk exposure and inventory indicator with dynamic color coding (Green/Red/Gray).
+- **Integrated Research Lab:**
+  - Configurable backtesting (Strategy, Seed, Simulation steps).
+  - Out-of-the-box benchmark presets (Standard calibration, High-volatility stress test).
+  - Comparative history table of past runs.
 
 ---
 
-## Installation & Démarrage Rapide
+## Installation & Quick Start
 
-### Prérequis Système
-- **Node.js :** Version 18.0.0 ou supérieure ([Télécharger](https://nodejs.org/)).
-- **Compilateur C++20 :** 
-  - **Linux / macOS :** GCC 10+ (`g++`), Clang 11+ (`clang++`), ou CMake 3.16+.
-  - **Windows :** MinGW-w64 (via MSYS2 / WinLibs), Clang, ou Visual Studio Build Tools (`cl.exe`).
+### System Prerequisites
+- **Node.js:** Version 18.0.0 or higher ([Download](https://nodejs.org/)).
+- **C++20 Compiler:** 
+  - **Linux / macOS:** GCC 10+ (`g++`), Clang 11+ (`clang++`), or CMake 3.16+.
+  - **Windows:** MinGW-w64 (via MSYS2 / WinLibs), Clang, or Visual Studio Build Tools (`cl.exe`).
 
-### 1. Cloner le Dépôt
+### 1. Clone Repository
 ```bash
-git clone https://github.com/votre-compte/adaptive-market-making-engine.git
+git clone https://github.com/your-account/adaptive-market-making-engine.git
 cd adaptive-market-making-engine
 ```
 
-### 2. Installer les Dépendances Node.js
+### 2. Install Node.js Dependencies
 ```bash
 npm install
 ```
 
-### 3. Compiler le Moteur C++ (Multi-Plateforme)
-Le script de build automatique détecte votre système d'exploitation et le compilateur disponible (CMake, g++, clang++, cl.exe) :
+### 3. Compile C++ Core Engine (Cross-Platform)
+The automatic build script detects your operating system and available compiler (CMake, g++, clang++, cl.exe):
 ```bash
 npm run build:cpp
 ```
-*Le binaire exécutable sera généré directement dans `cpp/mm_engine` (ou `cpp/mm_engine.exe` sous Windows).*
+*The executable binary will be generated directly in `cpp/mm_engine` (or `cpp/mm_engine.exe` on Windows).*
 
-### 4. Lancer le Terminal
+### 4. Launch Terminal
 ```bash
 npm run dev
 ```
-Ouvrez votre navigateur à l'adresse indiquée : **`http://localhost:3000`**.
+Open your browser at: **`http://localhost:3000`**.
 
 ---
 
-## Reproductibilité & Research Lab (Déterminisme)
+## Reproducibility & Research Lab (Determinism)
 
-La validation d'une stratégie quantitative exige une **reproductibilité expérimentale parfaite**.
+Validating a quantitative strategy requires **perfect experimental reproducibility**.
 
-Toutes les variables stochastiques du moteur (génération des ordres de bruit, taille des ordres, sens d'exécution) sont initialisées par un générateur **Mersenne Twister 64 bits (`std::mt19937_64`)** recevant le paramètre `--seed`.
+All stochastic variables in the engine (noise order generation, order sizes, execution direction) are initialized using a **Mersenne Twister 64-bit generator (`std::mt19937_64`)** driven by the `--seed` parameter.
 
-### Exemple de Vérification en Ligne de Commande :
+### Command Line Verification Example:
 ```bash
-# Expérience 1
+# Run 1
 ./cpp/mm_engine --strategy InventoryAware --seed 42 --duration 500
 
-# Expérience 2 (strictement identique)
+# Run 2 (strictly identical)
 ./cpp/mm_engine --strategy InventoryAware --seed 42 --duration 500
 ```
-*Résultat attendu : P&L final, drawdown maximal, nombre de trades et volume exécuté strictement identiques au centième près.*
+*Expected result: Final P&L, max drawdown, trade count, and traded volume strictly identical to the cent.*
 
 ---
 
-## Hypothèses & Limites du Modèle (Quantitative Disclaimer)
+## Model Assumptions & Limitations (Quantitative Disclaimer)
 
-Dans un souci de rigueur méthodologique, les simplifications suivantes sont documentées :
-1. **Priorité de File d'Attente (Queue Position) :** Le matching engine actuel exécute les ordres limites au carnet selon un matching agrégé par niveau de prix. Il ne simule pas la position exacte d'annulation/insertion dans la file FIFO microstructurelle.
-2. **Latence Réseau & Colocation :** La latence d'envoi d'ordres vers le carnet est considérée comme nulle (pas de latence de transit ni de modèle de slippage réseau).
-3. **Structure de Frais :** Le modèle n'applique pas de grille asymétrique *maker rebates / taker fees*, les flux de trésorerie sont bruts de commissions d'exchange.
-4. **Flux Taker Simulé :** Les ordres de marché adverses proviennent d'un modèle stochastique gaussien de type bruit blanc (*Noise Trader*), non couplé à un feed externe de données de marché réelles (L3 PCAP/ITCH).
-
----
-
-## Défis Techniques & Solutions d'Ingénierie
-
-Au cours du développement et du déploiement en production de cet **Engine de Market Making Quantitatif** (C++20, Node.js & React), plusieurs défis système et d'architecture ont été résolus :
-
-### 1. Résilience du Moteur de Simulation (C++20 Fallback)
-* **Problème :** Dans certains conteneurs Cloud légers, les outils de compilation natifs (`g++`, `cmake`) ne sont pas installés par défaut, empêchant la compilation du binaire haute fréquence C++ (`mm_engine`) au démarrage (`Binary not found`).
-* **Solution :** 
-  * Installation dynamique des paquets essentiels (`build-essential`, `cmake`) si nécessaire.
-  * Mise en place d'un système de **fallback automatique** : si le binaire C++ est indisponible, le serveur Node.js bascule de manière transparente sur un moteur de simulation quantitatif de secours haute fidélité écrit en TypeScript (`engine_simulator.ts`), garantissant zéro interruption de service.
-
-### 2. Déploiement Cloud Run & Bundling ESM/CJS
-* **Problème :** Lors de l'exécution en production sur Google Cloud Run avec Node.js en mode ESM natif, des erreurs d'importation de modules locaux (`ERR_MODULE_NOT_FOUND`) survenaient sur les chemins sans extension.
-* **Solution :** Mise en place d'un pipeline de build unifié avec **`esbuild`**. Il compile et empaquète l'ensemble du serveur TypeScript en un bundle CommonJS autonome unique (`dist/server.cjs`), garantissant un démarrage instantané sans erreur de résolution de modules.
-
-### 3. Stabilité des WebSockets & Reconnexion Intelligente
-* **Problème :** Des erreurs transitoires de type `[WS] WebSocket error` apparaissaient lors des rafraîchissements de page (HMR) ou des micro-reboots du serveur de développement.
-* **Solution :** Implémentation d'un mécanisme de **reconnexion exponentielle** côté client et d'un nettoyage propre des flux côté serveur pour absorber les déconnexions de proxy sans impacter l'expérience utilisateur.
-
-### 4. Intégrité de l'UI & Re-rendering React
-* **Problème :** Des avertissements de clés dupliquées (`Encountered two children with the same key`) survenaient lors d'expériences rapprochées en raison d'une troncature des horodatages (`Date.now().toString().slice(-4)`).
-* **Solution :** Création d'un identifiant unique persistant et incrémenté (`RUN-${Date.now()}-${runNum}`) couplé à un mécanisme de déduplication des exécutions dans le state React.
+To maintain methodological rigor, the following simplifications are documented:
+1. **Queue Position:** The current matching engine executes limit orders against the book using aggregated price-level matching. It does not simulate exact FIFO cancellation/insertion queue positioning.
+2. **Network Latency & Colocation:** Order submission latency to the book is treated as zero (no transit delay or network slippage model).
+3. **Fee Structure:** The model does not apply asymmetric maker rebates / taker fees; cash flows are gross of exchange commissions.
+4. **Simulated Taker Flow:** Adverse market orders originate from a Gaussian white noise stochastic model (*Noise Trader*), uncoupled from live external market data feeds (L3 PCAP/ITCH).
 
 ---
 
-## Feuille de Route & Évolutions Futures (Roadmap)
+## Technical Challenges & Engineering Solutions
 
-### Version 2.0 (Court Terme - Améliorations Fonctionnelles & Infra)
-- **Backtesting Historique & Replay :** Chargement de données réelles (CSV/Parquet) et replay milliseconde par milliseconde du carnet d'ordres (*Order Book Replay*).
-- **Visualisation Avancée :** Ajout d'une Heatmap de liquidité et d'un graphique de profondeur de marché (*Market Depth Chart*) en temps réel dans le dashboard React.
-- **Optimisation DevOps :** Image Docker multi-stage avec pré-compilation du binaire natif C++20 pour un déploiement Cloud Run 100% natif.
-- **Gestionnaire de Profils :** Export/Import des configurations de stratégie et profils de risque au format JSON.
+During the development and production deployment of this **Quantitative Market-Making Engine** (C++20, Node.js & React), several system and architecture challenges were resolved:
 
-### Version 3.0 (Moyen Terme - Quant & Intelligence Artificielle)
-- **Market Making par RL (Reinforcement Learning) :** Entraînement d'un agent d'apprentissage par renforcement (Q-Learning / PPO) pour l'ajustement dynamique des spreads.
-- **Modèles Quantitatifs Avancés :** Implémentation de la stratégie d'Avellaneda-Stoikov et détection du flux toxique (*Toxic Flow / Adverse Selection*).
-- **Gestion des Risques & VaR :** Calcul de la *Value at Risk* (VaR) en temps réel avec mécanisme de coupure automatique (*Kill Switch*) en cas de dépassement de drawdown.
-- **Simulation de Latence Réseau :** Module d'injection de délai (5ms - 50ms) et de rejet d'ordres pour tester la résilience en conditions réelles.
+### 1. Simulation Engine Resilience (C++20 Fallback)
+- **Problem:** In certain lightweight cloud containers, native compilation tools (`g++`, `cmake`) are not pre-installed, preventing the startup compilation of the C++ high-frequency binary (`mm_engine`) (`Binary not found`).
+- **Solution:** 
+  - Dynamic installation of essential packages (`build-essential`, `cmake`) when required.
+  - Implementation of an **automatic fallback system**: if the C++ binary is unavailable, the Node.js server transparently switches to a high-fidelity TypeScript quantitative simulation engine (`engine_simulator.ts`), guaranteeing zero downtime.
 
-### Version 4.0 (Long Terme - Connectivité Institutionnelle & Multi-Utilisateurs)
-- **Connecteurs Réels (FIX Protocol) :** Intégration du protocole FIX et de WebSockets binaires (Protobuf) pour la connexion à des exchanges réels (Binance, Coinbase Prime).
-- **Support Multi-Comptes & Multi-Actifs :** Gestion parallèle de plusieurs paires d'actifs (BTC/USDT, ETH/USDT) et de sous-comptes d'exécution.
-- **Architecture Multi-Rôles (RBAC) :** Séparation des accès dans l'interface React (Rôles : *Quant*, *Risk Manager*, *Observer*).
-- **Export Data Science :** Exportation directe des sessions de simulation au format Parquet/HDF5 pour analyse approfondie sous Python (Pandas/Polars/Jupyter).
+### 2. Cloud Run Deployment & ESM/CJS Bundling
+- **Problem:** When running in production on Google Cloud Run with Node.js in native ESM mode, local module import errors (`ERR_MODULE_NOT_FOUND`) occurred on extensionless paths.
+- **Solution:** Implementation of a unified build pipeline using **`esbuild`**. It compiles and bundles the entire TypeScript server into a single standalone CommonJS bundle (`dist/server.cjs`), ensuring instant startup without module resolution errors.
+
+### 3. WebSocket Stability & Smart Reconnection
+- **Problem:** Transient `[WS] WebSocket error` messages appeared during page hot-reloading (HMR) or dev server micro-reboots.
+- **Solution:** Implementation of client-side **exponential backoff reconnection** and clean server-side stream cleanup to absorb proxy disconnections without impacting user experience.
+
+### 4. UI Integrity & React Re-rendering
+- **Problem:** Duplicate key warnings (`Encountered two children with the same key`) occurred during rapid successive backtests due to timestamp truncation (`Date.now().toString().slice(-4)`).
+- **Solution:** Creation of a persistent incremented unique ID (`RUN-${Date.now()}-${runNum}`) coupled with run deduplication logic in the React state.
 
 ---
 
-## Licence
-Ce projet est distribué sous licence MIT. Libre d'utilisation pour toute fin de recherche, d'apprentissage et de présentation en portfolio.
+## Roadmap & Future Evolution
+
+### Version 2.0 (Short Term - Functional & Infra Improvements)
+- **Historical Backtesting & Replay:** Loading real market data (CSV/Parquet) and millisecond-level Order Book Replay.
+- **Advanced Visualization:** Addition of a liquidity Heatmap and real-time Market Depth Chart in the React dashboard.
+- **DevOps Optimization:** Multi-stage Docker image with pre-compiled native C++20 binary for 100% native Cloud Run deployment.
+- **Profile Manager:** Export/Import of strategy configurations and risk profiles in JSON format.
+
+### Version 3.0 (Medium Term - Quant & Artificial Intelligence)
+- **RL Market Making (Reinforcement Learning):** Training a reinforcement learning agent (Q-Learning / PPO) for dynamic spread adjustment.
+- **Advanced Quantitative Models:** Implementation of the Avellaneda-Stoikov strategy and Toxic Flow / Adverse Selection detection.
+- **Risk Management & VaR:** Real-time Value at Risk (VaR) calculation with an automatic Kill Switch mechanism upon drawdown breach.
+- **Network Latency Simulation:** Delay injection module (5ms - 50ms) and order rejection simulation to test real-world resilience.
+
+### Version 4.0 (Long Term - Institutional Connectivity & Multi-User)
+- **Live Connectors (FIX Protocol):** Integration of the FIX protocol and binary WebSockets (Protobuf) for connecting to real exchanges (Binance, Coinbase Prime).
+- **Multi-Account & Multi-Asset Support:** Parallel management of multiple asset pairs (BTC/USDT, ETH/USDT) and execution sub-accounts.
+- **Role-Based Access Control (RBAC):** Access separation in the React interface (Roles: Quant, Risk Manager, Observer).
+- **Data Science Export:** Direct export of simulation sessions to Parquet/HDF5 format for advanced analysis in Python (Pandas/Polars/Jupyter).
+
+---
+
+## License
+This project is distributed under the MIT License. Free to use for research, learning, and portfolio presentation purposes.
