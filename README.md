@@ -12,19 +12,21 @@
 
 ---
 
-## 📑 Sommaire
-1. [Aperçu & Vision Quantitative](#-aperçu--vision-quantitative)
-2. [Architecture Technique du Système](#-architecture-technique-du-système)
-3. [Stratégies de Market-Making Implémentées](#-stratégies-de-market-making-implémentées)
-4. [Moteur de Risque & Modèle Comptable](#-moteur-de-risque--modèle-comptable)
-5. [Fonctionnalités du Terminal](#-fonctionnalités-du-terminal)
-6. [Installation & Démarrage Rapide](#-installation--démarrage-rapide)
-7. [Reproductibilité & Research Lab (Déterminisme)](#-reproductibilité--research-lab-déterminisme)
-8. [Hypothèses & Limites du Modèle (Quantitative Disclaimer)](#-hypothèses--limites-du-modèle-quantitative-disclaimer)
+## Sommaire
+1. [Aperçu & Vision Quantitative](#aperçu--vision-quantitative)
+2. [Architecture Technique du Système](#architecture-technique-du-système)
+3. [Stratégies de Market-Making Implémentées](#stratégies-de-market-making-implémentées)
+4. [Moteur de Risque & Modèle Comptable](#moteur-de-risque--modèle-comptable)
+5. [Fonctionnalités du Terminal](#fonctionnalités-du-terminal)
+6. [Installation & Démarrage Rapide](#installation--démarrage-rapide)
+7. [Reproductibilité & Research Lab (Déterminisme)](#reproductibilité--research-lab-déterminisme)
+8. [Hypothèses & Limites du Modèle (Quantitative Disclaimer)](#hypothèses--limites-du-modèle-quantitative-disclaimer)
+9. [Défis Techniques & Solutions d'Ingénierie](#défis-techniques--solutions-dingénierie)
+10. [Feuille de Route & Évolutions Futures (Roadmap)](#feuille-de-route--évolutions-futures-roadmap)
 
 ---
 
-## 🎯 Aperçu & Vision Quantitative
+## Aperçu & Vision Quantitative
 
 Dans les marchés électroniques contemporains, les market-makers sont exposés à deux risques majeurs :
 1. **Le risque de sélection adverse (*Adverse Selection*) :** se faire exécuter par des intervenants informés lorsque le prix s'apprête à décaler.
@@ -50,7 +52,7 @@ Ce projet fournit un environnement de laboratoire quantitatif complet simulant u
 
 ---
 
-## 🏗 Architecture Technique du Système
+## Architecture Technique du Système
 
 Le système repose sur un découplage strict en trois couches : performance de calcul native, pont IPC/WebSocket multi-plateforme, et interface de visualisation temps réel.
 
@@ -86,7 +88,7 @@ Le système repose sur un découplage strict en trois couches : performance de c
 
 ---
 
-## 🧠 Stratégies de Market-Making Implémentées
+## Stratégies de Market-Making Implémentées
 
 Le moteur intègre 4 modèles de cotation aux propriétés mathématiques distinctes :
 
@@ -113,7 +115,7 @@ Le moteur intègre 4 modèles de cotation aux propriétés mathématiques distin
 
 ---
 
-## 🛡 Moteur de Risque & Modèle Comptable
+## Moteur de Risque & Modèle Comptable
 
 ### Gestion du Risque (Risk Engine)
 - **Contrôle d'exposition maximale :** Chaque ordre proposé par la stratégie est soumis à un test pré-trade d'allocation (`is_order_allowed`) :
@@ -131,7 +133,7 @@ Le moteur intègre 4 modèles de cotation aux propriétés mathématiques distin
 
 ---
 
-## 💻 Fonctionnalités du Terminal
+## Fonctionnalités du Terminal
 
 - **Visualisation du Carnet d'Ordres L2 avec Jauges de Profondeur :**
   - Affichage des 5 meilleurs Bids et Asks avec barres horizontales proportionnelles au volume relatif.
@@ -148,7 +150,7 @@ Le moteur intègre 4 modèles de cotation aux propriétés mathématiques distin
 
 ---
 
-## 🚀 Installation & Démarrage Rapide
+## Installation & Démarrage Rapide
 
 ### Prérequis Système
 - **Node.js :** Version 18.0.0 ou supérieure ([Télécharger](https://nodejs.org/)).
@@ -182,7 +184,7 @@ Ouvrez votre navigateur à l'adresse indiquée : **`http://localhost:3000`**.
 
 ---
 
-## 🔬 Reproductibilité & Research Lab (Déterminisme)
+## Reproductibilité & Research Lab (Déterminisme)
 
 La validation d'une stratégie quantitative exige une **reproductibilité expérimentale parfaite**.
 
@@ -200,7 +202,7 @@ Toutes les variables stochastiques du moteur (génération des ordres de bruit, 
 
 ---
 
-## ⚠️ Hypothèses & Limites du Modèle (Quantitative Disclaimer)
+## Hypothèses & Limites du Modèle (Quantitative Disclaimer)
 
 Dans un souci de rigueur méthodologique, les simplifications suivantes sont documentées :
 1. **Priorité de File d'Attente (Queue Position) :** Le matching engine actuel exécute les ordres limites au carnet selon un matching agrégé par niveau de prix. Il ne simule pas la position exacte d'annulation/insertion dans la file FIFO microstructurelle.
@@ -210,7 +212,7 @@ Dans un souci de rigueur méthodologique, les simplifications suivantes sont doc
 
 ---
 
-## 🛠️ Défis Techniques & Solutions d'Ingénierie
+## Défis Techniques & Solutions d'Ingénierie
 
 Au cours du développement et du déploiement en production de cet **Engine de Market Making Quantitatif** (C++20, Node.js & React), plusieurs défis système et d'architecture ont été résolus :
 
@@ -234,21 +236,21 @@ Au cours du développement et du déploiement en production de cet **Engine de M
 
 ---
 
-## 🗺️ Feuille de Route & Évolutions Futures (Roadmap)
+## Feuille de Route & Évolutions Futures (Roadmap)
 
-### 🚀 Version 2.0 (Court Terme - Améliorations Fonctionnelles & Infra)
+### Version 2.0 (Court Terme - Améliorations Fonctionnelles & Infra)
 - **Backtesting Historique & Replay :** Chargement de données réelles (CSV/Parquet) et replay milliseconde par milliseconde du carnet d'ordres (*Order Book Replay*).
 - **Visualisation Avancée :** Ajout d'une Heatmap de liquidité et d'un graphique de profondeur de marché (*Market Depth Chart*) en temps réel dans le dashboard React.
 - **Optimisation DevOps :** Image Docker multi-stage avec pré-compilation du binaire natif C++20 pour un déploiement Cloud Run 100% natif.
 - **Gestionnaire de Profils :** Export/Import des configurations de stratégie et profils de risque au format JSON.
 
-### 🧠 Version 3.0 (Moyen Terme - Quant & Intelligence Artificielle)
+### Version 3.0 (Moyen Terme - Quant & Intelligence Artificielle)
 - **Market Making par RL (Reinforcement Learning) :** Entraînement d'un agent d'apprentissage par renforcement (Q-Learning / PPO) pour l'ajustement dynamique des spreads.
 - **Modèles Quantitatifs Avancés :** Implémentation de la stratégie d'Avellaneda-Stoikov et détection du flux toxique (*Toxic Flow / Adverse Selection*).
 - **Gestion des Risques & VaR :** Calcul de la *Value at Risk* (VaR) en temps réel avec mécanisme de coupure automatique (*Kill Switch*) en cas de dépassement de drawdown.
 - **Simulation de Latence Réseau :** Module d'injection de délai (5ms - 50ms) et de rejet d'ordres pour tester la résilience en conditions réelles.
 
-### 🏛️ Version 4.0 (Long Terme - Connectivité Institutionnelle & Multi-Utilisateurs)
+### Version 4.0 (Long Terme - Connectivité Institutionnelle & Multi-Utilisateurs)
 - **Connecteurs Réels (FIX Protocol) :** Intégration du protocole FIX et de WebSockets binaires (Protobuf) pour la connexion à des exchanges réels (Binance, Coinbase Prime).
 - **Support Multi-Comptes & Multi-Actifs :** Gestion parallèle de plusieurs paires d'actifs (BTC/USDT, ETH/USDT) et de sous-comptes d'exécution.
 - **Architecture Multi-Rôles (RBAC) :** Séparation des accès dans l'interface React (Rôles : *Quant*, *Risk Manager*, *Observer*).
@@ -256,5 +258,5 @@ Au cours du développement et du déploiement en production de cet **Engine de M
 
 ---
 
-## 📜 Licence
+## Licence
 Ce projet est distribué sous licence MIT. Libre d'utilisation pour toute fin de recherche, d'apprentissage et de présentation en portfolio.
