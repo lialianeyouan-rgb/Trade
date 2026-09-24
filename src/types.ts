@@ -57,6 +57,7 @@ export interface PerformanceMetrics {
 
 export interface EngineData {
   step: number;
+  engine_mode?: string;
   market: MarketMetrics;
   order_book: OrderBookData;
   strategy: StrategyMetrics;
@@ -66,6 +67,7 @@ export interface EngineData {
 
 export interface ExperimentResults {
   pnl: number;
+  engine_mode?: string;
   realized_pnl?: number;
   unrealized_pnl?: number;
   maker_rebates?: number;

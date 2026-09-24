@@ -256,20 +256,38 @@ async function startServer() {
       try {
         const command = JSON.parse(msg.toString());
         if (command.type === "START_EXPERIMENT") {
-          const args: string[] = [];
-          if (command.strategy) args.push("--strategy", command.strategy);
-          if (command.seed !== undefined && command.seed !== null) args.push("--seed", command.seed.toString());
-          if (command.duration !== undefined && command.duration !== null) args.push("--duration", command.duration.toString());
-          if (command.replay) args.push("--replay", command.replay);
+          const validStrategies = ["FixedSpreadMM", "InventoryAware", "VolatilityAdaptive", "RegimeAdaptive"];
+          const strategy = validStrategies.includes(command.strategy) ? command.strategy : "FixedSpreadMM";
+          const seed = Number.isInteger(Number(command.seed)) ? Number(command.seed) : 42;
+          const duration = Number.isInteger(Number(command.duration)) ? Math.max(0, Number(command.duration)) : 0;
+          
+          const args: string[] = ["--strategy", strategy, "--seed", seed.toString(), "--duration", duration.toString()];
+          
+          if (command.replay && typeof command.replay === "string") {
+            // Sanitize and prevent directory traversal
+            const safeReplay = path.normalize(command.replay).replace(/^(\.\.[\/\\])+/, "");
+            const resolvedPath = path.resolve(process.cwd(), safeReplay);
+            if (fs.existsSync(resolvedPath)) {
+              args.push("--replay", resolvedPath);
+            }
+          }
 
-          console.log(`[WS] START_EXPERIMENT: strategy=${command.strategy} seed=${command.seed} duration=${command.duration}`);
+          console.log(`[WS] START_EXPERIMENT validated: strategy=${strategy} seed=${seed} duration=${duration}`);
           startEngine(args);
         } else if (command.type === "UPDATE_PARAMS") {
-          console.log("[WS] UPDATE_PARAMS:", command);
+          const sanitizedParams = {
+            type: "UPDATE_PARAMS",
+            gamma: typeof command.gamma === "number" ? Math.max(0.01, Math.min(2.0, command.gamma)) : undefined,
+            spread: typeof command.spread === "number" ? Math.max(0.01, Math.min(2.0, command.spread)) : undefined,
+            size: typeof command.size === "number" ? Math.max(1, Math.min(1000, command.size)) : undefined,
+            max_pos: typeof command.max_pos === "number" ? Math.max(10, Math.min(10000, command.max_pos)) : undefined,
+            skew_factor: typeof command.skew_factor === "number" ? Math.max(0.001, Math.min(1.0, command.skew_factor)) : undefined,
+          };
+          console.log("[WS] UPDATE_PARAMS validated:", sanitizedParams);
           if (isUsingEmbeddedSimulator) {
-            embeddedSimulator.updateParams(command);
+            embeddedSimulator.updateParams(sanitizedParams);
           } else if (activeProcess && activeProcess.stdin && !activeProcess.stdin.destroyed) {
-            activeProcess.stdin.write(JSON.stringify(command) + "\n");
+            activeProcess.stdin.write(JSON.stringify(sanitizedParams) + "\n");
           }
         }
       } catch (e: any) {

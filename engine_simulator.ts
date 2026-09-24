@@ -279,6 +279,7 @@ export class QuantEngineSimulator {
       type: "TICK",
       payload: {
         step: this.step,
+        engine_mode: "TS_FALLBACK_DEMO",
         market: {
           mid_price: Number(this.midPrice.toFixed(2)),
           spread: Number(this.spread.toFixed(4)),
@@ -341,6 +342,7 @@ export class QuantEngineSimulator {
       type: "experiment_complete",
       results: {
         pnl: Number(totalPnl.toFixed(4)),
+        engine_mode: "TS_FALLBACK_DEMO",
         realized_pnl: Number(this.cash.toFixed(4)),
         unrealized_pnl: Number(unrealizedPnl.toFixed(4)),
         maker_rebates: Number(this.totalMakerRebates.toFixed(4)),

@@ -203,6 +203,13 @@ export default function App() {
         {/* Engine Status Badge in Top-Right */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
+            <div className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold border ${
+              data?.engine_mode === 'NATIVE_CPP20'
+                ? 'bg-emerald-950/40 border-emerald-900/60 text-emerald-400'
+                : 'bg-amber-950/40 border-amber-900/60 text-amber-400'
+            }`}>
+              <span>[ENGINE: {data?.engine_mode || 'TS_FALLBACK_DEMO'}]</span>
+            </div>
             {isSimulating ? (
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-950/40 border border-amber-900/60 text-amber-400 text-xs font-semibold">
                 <RefreshCw className="w-3 h-3 animate-spin text-amber-400" />

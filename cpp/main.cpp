@@ -130,7 +130,7 @@ struct MMStats {
                 double downside_dev = std::sqrt(downside_sq_sum / pnl_returns.size());
                 sortino_ratio = safe_json_double((mean_ret / downside_dev) * std::sqrt(252.0));
             } else {
-                sortino_ratio = (mean_ret > 0.0) ? 2.5 : 0.0;
+                sortino_ratio = (mean_ret > 0.0) ? 1.5 : 0.0;
             }
         }
 
@@ -417,6 +417,9 @@ int main(int argc, char* argv[]) {
         double reservation_price = safe_json_double(risk.calculate_reservation_price(mid_price, features.vol));
         double skew_impact = safe_json_double(risk.calculate_skew_impact(features.vol));
         bool breach = std::abs(stats.inventory) >= max_pos;
+        if (breach && !risk.is_killed()) {
+            risk.kill_switch();
+        }
 
         if (duration == 0) {
             // Live WebSocket stream format (enclosed in standardized IPC message frame)
@@ -424,6 +427,7 @@ int main(int argc, char* argv[]) {
                       << "\"type\": \"TICK\", "
                       << "\"payload\": {"
                       << "\"step\": " << step << ", "
+                      << "\"engine_mode\": \"NATIVE_CPP20\", "
                       << "\"market\": {"
                       << "\"mid_price\": " << mid_price << ", "
                       << "\"spread\": " << safe_json_double(features.spread) << ", "
@@ -485,6 +489,7 @@ int main(int argc, char* argv[]) {
 
         std::cout << "{\"type\": \"experiment_complete\", \"results\": {"
                   << "\"pnl\": " << final_total << ", "
+                  << "\"engine_mode\": \"NATIVE_CPP20\", "
                   << "\"realized_pnl\": " << safe_json_double(stats.cash) << ", "
                   << "\"unrealized_pnl\": " << final_unrealized << ", "
                   << "\"maker_rebates\": " << safe_json_double(stats.total_maker_rebates) << ", "
