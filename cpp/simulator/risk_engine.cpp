@@ -5,8 +5,9 @@
 bool RiskEngine::is_order_allowed(const Order& order) const {
     if (killed) return false;
 
-    // Hard inventory constraint check
-    int64_t new_pos = current_position + (order.side == Side::BUY ? static_cast<int64_t>(order.quantity) : -static_cast<int64_t>(order.quantity));
+    // Hard committed exposure constraint check
+    int64_t committed = current_position + pending_buy_volume - pending_sell_volume;
+    int64_t new_pos = committed + (order.side == Side::BUY ? static_cast<int64_t>(order.quantity) : -static_cast<int64_t>(order.quantity));
     if (std::abs(new_pos) > max_position) return false;
     
     return true;
@@ -14,9 +15,9 @@ bool RiskEngine::is_order_allowed(const Order& order) const {
 
 void RiskEngine::update_position(const Order& order, uint64_t filled_qty) {
     if (order.side == Side::BUY) {
-        current_position += filled_qty;
+        current_position = std::min(max_position, current_position + static_cast<int64_t>(filled_qty));
     } else {
-        current_position -= filled_qty;
+        current_position = std::max(-max_position, current_position - static_cast<int64_t>(filled_qty));
     }
 }
 

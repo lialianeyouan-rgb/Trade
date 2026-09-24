@@ -22,5 +22,16 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": [
+    "src/**/*",
+    "server.ts",
+    "engine_simulator.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "cpp/build",
+    "cpp/**/CMakeFiles"
+  ]
 }

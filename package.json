@@ -9,7 +9,7 @@
     "start": "node dist/server.cjs",
     "build:cpp": "node scripts/build_cpp.js",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "node -e \"const fs = require('fs'); ['dist', 'server.js', 'cpp/build'].forEach(p => { try { fs.rmSync(p, {recursive: true, force: true}); } catch(e) {} })\"",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

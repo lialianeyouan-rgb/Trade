@@ -77,9 +77,11 @@ struct MMStats {
 
                 if (my_side == Side::BUY) {
                     inventory += t.quantity;
+                    if (inventory > risk.get_max_position()) inventory = risk.get_max_position();
                     cash -= static_cast<double>(t.quantity) * t.price;
                 } else {
                     inventory -= t.quantity;
+                    if (inventory < -risk.get_max_position()) inventory = -risk.get_max_position();
                     cash += static_cast<double>(t.quantity) * t.price;
                 }
 
@@ -280,9 +282,11 @@ int main(int argc, char* argv[]) {
         else if (arg == "--replay" && i + 1 < argc) replay_file = argv[++i];
     }
 
-    // Launch background stdin thread for live parameter hot-reloading
-    std::thread input_th(stdin_listener_thread);
-    input_th.detach();
+    // Launch background stdin thread for live parameter hot-reloading only in live stream mode (duration == 0)
+    if (duration == 0) {
+        std::thread input_th(stdin_listener_thread);
+        input_th.detach();
+    }
 
     Market market;
     int64_t max_pos = 100;
@@ -369,6 +373,7 @@ int main(int argc, char* argv[]) {
         mm_trader->update(market);
         for (auto& mm_order : mm_trader->get_orders()) {
             if (risk.is_order_allowed(mm_order)) {
+                risk.add_pending_order(mm_order);
                 latency_buffer.submit_order(mm_order, current_time_ms);
             }
         }
@@ -379,7 +384,7 @@ int main(int argc, char* argv[]) {
             current_mid_estimate = noise_trader.get_current_price();
         }
 
-        auto executed_trades = latency_buffer.drain_due_actions(market, current_time_ms);
+        auto executed_trades = latency_buffer.drain_due_actions(market, risk, current_time_ms);
         for (const auto& tr : executed_trades) {
             noise_trader.on_order_matched_or_cancelled(tr.maker_id);
             noise_trader.on_order_matched_or_cancelled(tr.taker_id);
@@ -419,6 +424,9 @@ int main(int argc, char* argv[]) {
         bool breach = std::abs(stats.inventory) >= max_pos;
         if (breach && !risk.is_killed()) {
             risk.kill_switch();
+            market.cancel_orders_by_trader(1);
+            latency_buffer.clear_trader(1);
+            risk.clear_pending_orders();
         }
 
         if (duration == 0) {

@@ -258,17 +258,21 @@ async function startServer() {
         if (command.type === "START_EXPERIMENT") {
           const validStrategies = ["FixedSpreadMM", "InventoryAware", "VolatilityAdaptive", "RegimeAdaptive"];
           const strategy = validStrategies.includes(command.strategy) ? command.strategy : "FixedSpreadMM";
-          const seed = Number.isInteger(Number(command.seed)) ? Number(command.seed) : 42;
-          const duration = Number.isInteger(Number(command.duration)) ? Math.max(0, Number(command.duration)) : 0;
+          
+          const rawSeed = Number(command.seed);
+          const seed = (Number.isInteger(rawSeed) && rawSeed >= 0) ? rawSeed : 42;
+          
+          const rawDuration = Number(command.duration);
+          const duration = (Number.isInteger(rawDuration) && rawDuration >= 0) ? Math.min(100000, rawDuration) : 0;
           
           const args: string[] = ["--strategy", strategy, "--seed", seed.toString(), "--duration", duration.toString()];
           
           if (command.replay && typeof command.replay === "string") {
-            // Sanitize and prevent directory traversal
-            const safeReplay = path.normalize(command.replay).replace(/^(\.\.[\/\\])+/, "");
-            const resolvedPath = path.resolve(process.cwd(), safeReplay);
-            if (fs.existsSync(resolvedPath)) {
-              args.push("--replay", resolvedPath);
+            const REPLAY_DIR = path.resolve(process.cwd(), "cpp");
+            const sanitizedInput = path.basename(command.replay);
+            const targetPath = path.resolve(REPLAY_DIR, sanitizedInput);
+            if (targetPath.startsWith(REPLAY_DIR) && fs.existsSync(targetPath)) {
+              args.push("--replay", targetPath);
             }
           }
 
