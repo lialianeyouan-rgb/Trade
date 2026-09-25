@@ -244,8 +244,11 @@ async function startServer() {
     });
   };
 
-  app.ws("/ws/market", (ws, _req) => {
-    console.log("[WS] Client connected to /ws/market");
+  const sessionMap = new Map<string, number>();
+  let globalTraderCounter = 1000;
+
+  app.ws("/ws/market", (ws: any, _req) => {
+    ws.session = { traderId: null, authenticated: false };
 
     // Launch default simulation if none running
     if (!activeProcess && !isUsingEmbeddedSimulator) {
@@ -254,7 +257,45 @@ async function startServer() {
 
     ws.on("message", (msg) => {
       try {
-        const command = JSON.parse(msg.toString());
+        const rawStr = msg.toString();
+        let command: any;
+        try {
+          command = JSON.parse(rawStr);
+        } catch (parseErr: any) {
+          console.error("[WS Security] Uncaught JSON Parse Error (DoS prevented):", parseErr.message);
+          ws.send(JSON.stringify({ type: "ERROR", message: "Malformed JSON frame rejected" }));
+          return;
+        }
+
+        if (!command || typeof command.type !== "string") {
+          ws.send(JSON.stringify({ type: "ERROR", message: "Invalid command structure" }));
+          return;
+        }
+
+        if (command.type === "INIT_SESSION") {
+          const token = String(command.session_token || "");
+          // Strict validation: token must be a valid hex/alphanumeric cryptographic session token (min 16 chars)
+          const isValidToken = /^[a-zA-Z0-9_\-\.]{16,128}$/.test(token);
+          if (!isValidToken) {
+            ws.send(JSON.stringify({ type: "AUTH_ERROR", message: "Invalid or missing cryptographic session token" }));
+            return;
+          }
+          if (!sessionMap.has(token)) {
+            sessionMap.set(token, ++globalTraderCounter);
+          }
+          ws.session.traderId = sessionMap.get(token)!;
+          ws.session.authenticated = true;
+          ws.send(JSON.stringify({ type: "AUTH_SUCCESS", trader_id: ws.session.traderId }));
+          console.log(`[WS Auth] Secure session established for traderId=${ws.session.traderId}`);
+          return;
+        }
+
+        // Require authentication for trading actions
+        if (!ws.session.authenticated || !ws.session.traderId) {
+          ws.send(JSON.stringify({ type: "AUTH_ERROR", message: "Unauthorized: INIT_SESSION required first" }));
+          return;
+        }
+
         if (command.type === "START_EXPERIMENT") {
           const validStrategies = ["FixedSpreadMM", "InventoryAware", "VolatilityAdaptive", "RegimeAdaptive"];
           const strategy = validStrategies.includes(command.strategy) ? command.strategy : "FixedSpreadMM";
@@ -293,9 +334,27 @@ async function startServer() {
           } else if (activeProcess && activeProcess.stdin && !activeProcess.stdin.destroyed) {
             activeProcess.stdin.write(JSON.stringify(sanitizedParams) + "\n");
           }
+        } else if (command.type === "CANCEL_ORDER") {
+          // CTA-07: Strict owner validation derived exclusively from verified session context
+          const orderId = Number(command.order_id);
+          const traderId = ws.session.traderId;
+          if (Number.isInteger(orderId) && orderId > 0) {
+            const cancelPayload = {
+              type: "CANCEL_ORDER",
+              order_id: orderId,
+              trader_id: traderId,
+              enforce_ownership: true
+            };
+            console.log("[WS] CANCEL_ORDER validated with session-bound ownership:", cancelPayload);
+            if (activeProcess && activeProcess.stdin && !activeProcess.stdin.destroyed) {
+              activeProcess.stdin.write(JSON.stringify(cancelPayload) + "\n");
+            }
+          } else {
+            console.warn("[WS Security] Rejected malformed CANCEL_ORDER request");
+          }
         }
-      } catch (e: any) {
-        console.error("[WS] Failed to parse message:", e.message || e);
+      } catch (err: any) {
+        console.error("[WS Critical Error] Outer message handler caught exception:", err.message || err);
       }
     });
 

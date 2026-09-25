@@ -10,6 +10,7 @@ public:
 
     bool is_order_allowed(const Order& order) const;
     void update_position(const Order& order, uint64_t filled_qty);
+    void check_and_unwind_volatility(double volatility);
     void kill_switch() { 
         killed = true; 
         clear_pending_orders(); 

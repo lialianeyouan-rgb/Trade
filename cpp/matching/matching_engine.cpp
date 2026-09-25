@@ -39,7 +39,11 @@ std::vector<Trade> MatchingEngine::match(OrderBook& book, Order& incoming_order)
             ask.quantity -= matched_qty;
 
             if (ask.quantity == 0) {
-                book.cancel_order(ask.id);
+                book.remove_order_mapping(ask.id);
+                ask_level.erase(ask_level.begin());
+                if (ask_level.empty()) {
+                    asks.erase(asks.begin());
+                }
             }
         }
     } else {
@@ -75,9 +79,16 @@ std::vector<Trade> MatchingEngine::match(OrderBook& book, Order& incoming_order)
             bid.quantity -= matched_qty;
 
             if (bid.quantity == 0) {
-                book.cancel_order(bid.id);
+                book.remove_order_mapping(bid.id);
+                bid_level.erase(bid_level.begin());
+                if (bid_level.empty()) {
+                    bids.erase(bids.begin());
+                }
             }
         }
+    }
+    if (incoming_order.quantity == 0) {
+        book.remove_order_mapping(incoming_order.id);
     }
     return trades;
 }

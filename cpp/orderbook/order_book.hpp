@@ -12,8 +12,9 @@ using PriceLevel = std::pair<double, std::vector<Order>>;
 class OrderBook {
 public:
     void add_order(const Order& order);
-    void cancel_order(uint64_t order_id);
+    void cancel_order(uint64_t order_id, uint32_t requester_id = 0, bool enforce_ownership = false);
     void cancel_orders_by_trader(uint32_t trader_id);
+    void remove_order_mapping(uint64_t order_id) { order_id_map.erase(order_id); }
     
     // Contiguous accessors
     const std::vector<PriceLevel>& get_bids() const { return bids; }
@@ -37,6 +38,7 @@ private:
     struct OrderLocation {
         bool is_bid;
         double price;
+        uint32_t trader_id;
     };
     std::unordered_map<uint64_t, OrderLocation> order_id_map;
 };

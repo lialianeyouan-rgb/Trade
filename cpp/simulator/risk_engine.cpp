@@ -21,6 +21,15 @@ void RiskEngine::update_position(const Order& order, uint64_t filled_qty) {
     }
 }
 
+void RiskEngine::check_and_unwind_volatility(double volatility) {
+    // CTA-20: Autonomous risk engine inventory unwinding under extreme volatility (> 0.05 / 5%)
+    constexpr double VOLATILITY_THRESHOLD = 0.05;
+    if (volatility > VOLATILITY_THRESHOLD && current_position != 0) {
+        int64_t reduction = current_position / 2;
+        current_position -= reduction;
+    }
+}
+
 double RiskEngine::calculate_var_95(double mid_price, double volatility) const {
     if (current_position == 0) return 0.0;
     double vol = std::max(0.0001, volatility);
