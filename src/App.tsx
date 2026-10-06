@@ -28,6 +28,25 @@ export default function App() {
 
   const [isConnected, setIsConnected] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<Array<{
+    id: string;
+    timestamp: string;
+    category: string;
+    action: string;
+    plainLanguage: string;
+    technicalDetails: string;
+    outcome: string;
+  }>>([
+    {
+      id: 'init-1',
+      timestamp: new Date().toLocaleTimeString(),
+      category: 'SYSTEM',
+      action: 'Initialisation du Terminal Quant',
+      plainLanguage: 'Le système de trading et le carnet d’ordres ont démarré avec succès. Prêt pour les simulations en direct.',
+      technicalDetails: 'WS connection established, engine stream active @ 20ms',
+      outcome: 'Flux de données opérationnel et stable.'
+    }
+  ]);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const simulationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -127,6 +146,20 @@ export default function App() {
   const handleStartExperiment = (params: { strategy: string; seed: number; duration: number; replay?: string }) => {
     currentExperimentRef.current = params;
     setHistory([]);
+    const timeStr = new Date().toLocaleTimeString();
+    setAuditLogs((prev) => [
+      {
+        id: Math.random().toString(),
+        timestamp: timeStr,
+        category: 'RESEARCH LAB',
+        action: `Lancement d'Expérience (${params.strategy})`,
+        plainLanguage: `Démarrage d'une simulation avec la stratégie "${params.strategy}" (Graine: ${params.seed}, Durée: ${params.duration === 0 ? 'Continu (Live)' : params.duration + ' pas'}).`,
+        technicalDetails: `START_EXPERIMENT strategy=${params.strategy} seed=${params.seed} duration=${params.duration}${params.replay ? ' replay=' + params.replay : ''}`,
+        outcome: 'Le moteur C++ recalcule le carnet d’ordres et les métriques de risque en temps réel.'
+      },
+      ...prev.slice(0, 49)
+    ]);
+
     if (params.duration > 0) {
       setIsSimulating(true);
       // Failsafe timeout in case simulation runs unexpectedly long
@@ -152,6 +185,24 @@ export default function App() {
   };
 
   const handleUpdateParams = (params: { gamma?: number; spread?: number; size?: number; max_pos?: number; skew_factor?: number }) => {
+    const timeStr = new Date().toLocaleTimeString();
+    const paramDesc = Object.entries(params)
+      .filter(([_, v]) => v !== undefined)
+      .map(([k, v]) => `${k} = ${v}`)
+      .join(', ');
+    setAuditLogs((prev) => [
+      {
+        id: Math.random().toString(),
+        timestamp: timeStr,
+        category: 'STRATEGY PARAMS',
+        action: 'Mise à jour des paramètres en direct',
+        plainLanguage: `Modification des réglages de trading (${paramDesc}).`,
+        technicalDetails: `UPDATE_PARAMS { ${paramDesc} }`,
+        outcome: 'Application instantanée dans le carnet d’ordres et réajustement des prix de cotation.'
+      },
+      ...prev.slice(0, 49)
+    ]);
+
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
@@ -233,7 +284,7 @@ export default function App() {
       {/* Main Workspace with Independent Scrollable Views */}
       <main className="flex-1 overflow-hidden p-3 min-h-0 relative">
         <div className={`absolute inset-3 overflow-hidden ${activeView === 'MARKET' ? 'block' : 'hidden'}`}>
-          <MarketView data={data} history={history} isConnected={isConnected} />
+          <MarketView data={data} history={history} isConnected={isConnected} auditLogs={auditLogs} />
         </div>
         <div className={`absolute inset-3 overflow-hidden ${activeView === 'RESEARCH' ? 'block' : 'hidden'}`}>
           <ResearchLabView

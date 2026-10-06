@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -9,15 +9,26 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { formatPnL, formatNumber, formatInteger } from '../lib/formatters';
-import { Activity, ShieldAlert, ShieldCheck, TrendingUp, Layers, Zap } from 'lucide-react';
+import { Activity, ShieldAlert, ShieldCheck, TrendingUp, Layers, Zap, Terminal, CheckCircle2 } from 'lucide-react';
 
 interface MarketViewProps {
   data: any;
   history: any[];
   isConnected: boolean;
+  auditLogs?: Array<{
+    id: string;
+    timestamp: string;
+    category: string;
+    action: string;
+    plainLanguage: string;
+    technicalDetails: string;
+    outcome: string;
+  }>;
 }
 
-export default function MarketView({ data, history, isConnected }: MarketViewProps) {
+export default function MarketView({ data, history, isConnected, auditLogs = [] }: MarketViewProps) {
+  const [activeTab, setActiveTab] = useState<'CHART' | 'LOGS'>('CHART');
+
   const pnlMeta = useMemo(() => {
     return formatPnL(data?.performance?.total_pnl, 2);
   }, [data?.performance?.total_pnl]);
@@ -306,100 +317,167 @@ export default function MarketView({ data, history, isConnected }: MarketViewPro
         </div>
       </div>
 
-      {/* Bottom Panel: Live Performance & Recharts Time-Series */}
+      {/* Bottom Panel: Live Performance Chart or Audit Trail Logs */}
       <div className="terminal-border p-3.5 flex flex-col h-64 md:h-72 min-h-[200px]">
         <div className="flex justify-between items-center pb-2 border-b border-[#222222]">
           <div className="flex items-center gap-2">
-            <Zap className="w-3.5 h-3.5 text-neutral-400" />
-            <span className="terminal-text">LIVE QUANTITATIVE METRICS (P&L & INVENTORY)</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-neutral-500">TOTAL P&L:</span>
-              <span className={`tabular-nums text-sm ${pnlMeta.colorClass}`}>
-                {pnlMeta.text} USD
-              </span>
+            <div className="flex items-center gap-1 bg-[#141414] p-0.5 rounded border border-[#222222]">
+              <button
+                onClick={() => setActiveTab('CHART')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded transition-all cursor-pointer ${
+                  activeTab === 'CHART'
+                    ? 'bg-neutral-800 text-white font-bold'
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                <Zap className="w-3 h-3 text-emerald-400" />
+                <span>LIVE METRICS (CHART)</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('LOGS')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded transition-all cursor-pointer ${
+                  activeTab === 'LOGS'
+                    ? 'bg-neutral-800 text-white font-bold'
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                <Terminal className="w-3 h-3 text-sky-400" />
+                <span>AUDIT TRAIL & PLAIN-LANGUAGE LOGS ({auditLogs.length})</span>
+              </button>
             </div>
-            <div className="flex items-center gap-3 text-[10px] text-neutral-400 ml-3">
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-1 bg-emerald-500 inline-block rounded-sm" />
-                <span>P&L (Left)</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-1 bg-sky-400 inline-block rounded-sm" />
-                <span>Inventory (Right)</span>
-              </span>
-            </div>
           </div>
+          {activeTab === 'CHART' && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-neutral-500">TOTAL P&L:</span>
+                <span className={`tabular-nums text-sm ${pnlMeta.colorClass}`}>
+                  {pnlMeta.text} USD
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] text-neutral-400 ml-3">
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-1 bg-emerald-500 inline-block rounded-sm" />
+                  <span>P&L (Left)</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-1 bg-sky-400 inline-block rounded-sm" />
+                  <span>Inventory (Right)</span>
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 w-full mt-2 min-h-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={history} margin={{ top: 10, right: 25, bottom: 5, left: -5 }}>
-              <CartesianGrid strokeDasharray="2 4" stroke="#1f1f1f" vertical={false} />
-              <XAxis
-                dataKey="time"
-                stroke="#404040"
-                tick={{ fill: '#737373', fontSize: 10, fontFamily: 'monospace' }}
-                tickLine={false}
-              />
-              <YAxis
-                yAxisId="left"
-                stroke="#404040"
-                tick={{ fill: '#10b981', fontSize: 10, fontFamily: 'monospace' }}
-                domain={['auto', 'auto']}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => Number(v).toFixed(1)}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke="#404040"
-                tick={{ fill: '#38bdf8', fontSize: 10, fontFamily: 'monospace' }}
-                domain={['auto', 'auto']}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => Math.round(Number(v)).toString()}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#0d0d0d',
-                  borderColor: '#262626',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  fontFamily: 'monospace',
-                  padding: '6px 10px',
-                }}
-                formatter={(value: any, name: any) => {
-                  const num = Number(value);
-                  if (name === 'PnL') return [`${num.toFixed(2)} USD`, 'P&L'];
-                  return [`${num} units`, 'Inventory'];
-                }}
-                labelFormatter={(label) => `Step: ${label}`}
-              />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="pnl"
-                name="PnL"
-                stroke="#10b981"
-                strokeWidth={1.75}
-                dot={false}
-                isAnimationActive={false}
-              />
-              <Line
-                yAxisId="right"
-                type="stepAfter"
-                dataKey="inventory"
-                name="Inventory"
-                stroke="#38bdf8"
-                strokeWidth={1.5}
-                dot={false}
-                isAnimationActive={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="flex-1 w-full mt-2 min-h-0 overflow-hidden flex flex-col">
+          {activeTab === 'CHART' ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={history} margin={{ top: 10, right: 25, bottom: 5, left: -5 }}>
+                <CartesianGrid strokeDasharray="2 4" stroke="#1f1f1f" vertical={false} />
+                <XAxis
+                  dataKey="time"
+                  stroke="#404040"
+                  tick={{ fill: '#737373', fontSize: 10, fontFamily: 'monospace' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  yAxisId="left"
+                  stroke="#404040"
+                  tick={{ fill: '#10b981', fontSize: 10, fontFamily: 'monospace' }}
+                  domain={['auto', 'auto']}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => Number(v).toFixed(1)}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#404040"
+                  tick={{ fill: '#38bdf8', fontSize: 10, fontFamily: 'monospace' }}
+                  domain={['auto', 'auto']}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => Math.round(Number(v)).toString()}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0d0d0d',
+                    borderColor: '#262626',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontFamily: 'monospace',
+                    padding: '6px 10px',
+                  }}
+                  formatter={(value: any, name: any) => {
+                    const num = Number(value);
+                    if (name === 'PnL') return [`${num.toFixed(2)} USD`, 'P&L'];
+                    return [`${num} units`, 'Inventory'];
+                  }}
+                  labelFormatter={(label) => `Step: ${label}`}
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="pnl"
+                  name="PnL"
+                  stroke="#10b981"
+                  strokeWidth={1.75}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+                <Line
+                  yAxisId="right"
+                  type="stepAfter"
+                  dataKey="inventory"
+                  name="Inventory"
+                  stroke="#38bdf8"
+                  strokeWidth={1.5}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
+              {auditLogs.length === 0 ? (
+                <div className="text-center text-neutral-500 py-8">Aucun journal d'activité récent.</div>
+              ) : (
+                auditLogs.map((log) => (
+                  <div key={log.id} className="bg-[#111111] p-2.5 rounded border border-[#222222] hover:border-neutral-700 transition-all">
+                    <div className="flex justify-between items-start mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-neutral-900 border border-neutral-800 text-neutral-300">
+                          {log.category}
+                        </span>
+                        <span className="font-bold text-white">{log.action}</span>
+                      </div>
+                      <span className="text-[10px] text-neutral-500 tabular-nums">{log.timestamp}</span>
+                    </div>
+
+                    {/* Plain Language explanation for non-technical users */}
+                    <div className="text-neutral-300 text-[11px] mt-1 bg-neutral-900/60 p-2 rounded border border-neutral-800/60 flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-neutral-500 text-[10px] uppercase font-semibold block mb-0.5">Explication (Tous publics) :</span>
+                        <span>{log.plainLanguage}</span>
+                      </div>
+                    </div>
+
+                    {/* Technical details & outcome */}
+                    <div className="mt-2 pt-2 border-t border-[#1a1a1a] grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
+                      <div>
+                        <span className="text-neutral-500 uppercase block">Détail Technique :</span>
+                        <code className="text-sky-400 font-mono bg-neutral-950 px-1.5 py-0.5 rounded block mt-0.5 truncate">{log.technicalDetails}</code>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500 uppercase block">Résultat / Débouché :</span>
+                        <span className="text-emerald-400 font-semibold block mt-0.5">{log.outcome}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
