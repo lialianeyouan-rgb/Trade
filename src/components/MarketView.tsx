@@ -9,7 +9,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { formatPnL, formatNumber, formatInteger } from '../lib/formatters';
-import { Activity, ShieldAlert, ShieldCheck, TrendingUp, Layers, Zap, Terminal, CheckCircle2 } from 'lucide-react';
+import { Activity, ShieldAlert, ShieldCheck, TrendingUp, Layers, Zap, Terminal, CheckCircle2, Download } from 'lucide-react';
 
 interface MarketViewProps {
   data: any;
@@ -28,6 +28,16 @@ interface MarketViewProps {
 
 export default function MarketView({ data, history, isConnected, auditLogs = [] }: MarketViewProps) {
   const [activeTab, setActiveTab] = useState<'CHART' | 'LOGS'>('CHART');
+
+  const handleExportLogs = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(auditLogs, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `quant_audit_logs_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
 
   const pnlMeta = useMemo(() => {
     return formatPnL(data?.performance?.total_pnl, 2);
@@ -346,7 +356,7 @@ export default function MarketView({ data, history, isConnected, auditLogs = [] 
               </button>
             </div>
           </div>
-          {activeTab === 'CHART' && (
+          {activeTab === 'CHART' ? (
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-neutral-500">TOTAL P&L:</span>
@@ -365,7 +375,15 @@ export default function MarketView({ data, history, isConnected, auditLogs = [] 
                 </span>
               </div>
             </div>
-          )}
+          ) : auditLogs.length > 0 ? (
+            <button
+              onClick={handleExportLogs}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-xs font-semibold transition-all cursor-pointer border border-neutral-700"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              <span>EXPORTER LES LOGS (JSON)</span>
+            </button>
+          ) : null}
         </div>
 
         <div className="flex-1 w-full mt-2 min-h-0 overflow-hidden flex flex-col">
