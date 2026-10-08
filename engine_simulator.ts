@@ -297,6 +297,7 @@ export class QuantEngineSimulator {
         },
         risk: {
           status: breach ? "BREACH" : "NORMAL",
+          latency_source: "estimated",
           exposure: Math.abs(this.inventory),
           max_exposure: this.maxPosition,
           inventory: this.inventory,
@@ -309,6 +310,10 @@ export class QuantEngineSimulator {
           latency_pending: Math.floor(this.nextRandom() * 3),
           mean_latency_ms: 5.0,
           jitter_stddev_ms: 2.0,
+          latency_samples: 0,
+          requested_latency_mean_ms: 5.0,
+          observed_latency_mean_ms: 5.0,
+          queue_wait_mean_ms: 0.0,
           adverse_selection: Number(this.adverseSelection.toFixed(4)),
           sortino_ratio: Number(this.sortinoRatio.toFixed(2)),
           inventory_half_life: Number(this.inventoryHalfLife.toFixed(1)),
@@ -343,6 +348,10 @@ export class QuantEngineSimulator {
       results: {
         pnl: Number(totalPnl.toFixed(4)),
         engine_mode: "TS_FALLBACK_DEMO",
+        strategy: this.strategyName,
+        seed: this.seed,
+        duration: this.duration,
+        latency_source: "estimated",
         realized_pnl: Number(this.cash.toFixed(4)),
         unrealized_pnl: Number(unrealizedPnl.toFixed(4)),
         maker_rebates: Number(this.totalMakerRebates.toFixed(4)),
@@ -356,6 +365,10 @@ export class QuantEngineSimulator {
         adverse_selection: Number(this.adverseSelection.toFixed(4)),
         sortino_ratio: Number(this.sortinoRatio.toFixed(2)),
         inventory_half_life: Number(this.inventoryHalfLife.toFixed(1)),
+        latency_samples: 0,
+        requested_latency_mean_ms: 5.0,
+        observed_latency_mean_ms: 5.0,
+        queue_wait_mean_ms: 0.0,
       },
     };
 

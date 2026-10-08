@@ -72,7 +72,7 @@ The system relies on a strict three-tier decoupling: native compute performance,
 │                          NODE.JS BRIDGING SERVER                            │
 │  - Multi-platform Process Supervisor (Windows .exe / Unix binary)           │
 │  - Lifecycle management of child processes and system signals               │
-│  - High-frequency WebSocket server (transmission latency < 20ms)            │
+│  - WebSocket server with native observed-latency telemetry                   │
 │  - Bidirectional routing of orders and experiment parameters                │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │ WebSocket (ws://)
@@ -141,7 +141,7 @@ The engine integrates 4 quoting models with distinct mathematical properties:
 - **L2 Order Book Visualization with Depth Gauges:**
   - Displays top 5 Bids and Asks with proportional horizontal volume bars.
   - Real-time **Order Book Imbalance (OBI)** calculation: `OBI = (V_bid - V_ask) / (V_bid + V_ask)`.
-- **High-Frequency Streaming:** 20 ms interval WebSocket refresh without browser memory bloating.
+- **High-Frequency Streaming:** 20 ms interval WebSocket refresh with observed gateway latency metrics.
 - **Micro-Interactions & Monitoring:**
   - Engine status badges (`ENGINE ONLINE`, `RUNNING SIMULATION...`, `DISCONNECTED`).
   - Risk exposure and inventory indicator with dynamic color coding (Green/Red/Gray).
@@ -214,7 +214,7 @@ To reproduce these benchmarks and stress tests locally:
 
 1. **Compile the optimized C++20 binary:**
    ```bash
-   g++ -std=c++20 -O3 -march=native -flto -Icpp/orderbook -Icpp/matching -Icpp/simulator cpp/main.cpp cpp/orderbook/order_book.cpp cpp/matching/matching_engine.cpp cpp/simulator/risk_engine.cpp -o cpp/mm_engine
+   npm run build:cpp
    ```
 2. **Run deterministic stress test scenario:**
    ```bash
@@ -222,8 +222,28 @@ To reproduce these benchmarks and stress tests locally:
    ```
 3. **Run unit tests with sanitizers (ASan & UBSan):**
    ```bash
-   g++ -std=c++20 -fsanitize=address,undefined -O3 -Icpp/orderbook -Icpp/matching -Icpp/simulator cpp/tests/unit_test_main.cpp cpp/orderbook/order_book.cpp cpp/matching/matching_engine.cpp cpp/simulator/risk_engine.cpp -o cpp/unit_tests && ./cpp/unit_tests
+   npm run test:cpp
    ```
+
+### 5. Latency Telemetry & Reproducible Benchmark
+
+The native engine reports both the requested gateway delay and the effective
+delay observed when an action reaches the matching engine:
+
+- `latency_samples`, `requested_latency_mean_ms`;
+- `observed_latency_mean_ms`, `observed_latency_p50_ms`, `observed_latency_p95_ms`, `observed_latency_p99_ms`;
+- `observed_latency_min_ms`, `observed_latency_max_ms`, `queue_wait_mean_ms`;
+- `latency_max_pending` and `latency_source` (`observed` for C++, `estimated` for the fallback demo).
+
+Run the deterministic multi-strategy, multi-seed benchmark with:
+
+```bash
+npm run benchmark:latency -- /tmp/latency-benchmark.jsonl
+```
+
+The simulation clock currently advances in 10 ms steps, so effective latency
+percentiles are quantized to that resolution. This is a model-level latency
+measurement, not a claim about physical network or exchange latency.
 
 ---
 
