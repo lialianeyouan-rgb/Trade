@@ -1,0 +1,30 @@
+name: CI & Quantitative Benchmarks
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Compile C++ Engine & Run Unit Tests
+        run: |
+          g++ -std=c++20 -fsanitize=address,undefined -O3 -Icpp/orderbook -Icpp/matching -Icpp/simulator cpp/tests/unit_test_main.cpp cpp/orderbook/order_book.cpp cpp/matching/matching_engine.cpp cpp/simulator/risk_engine.cpp -o unit_tests
+          ./unit_tests
+
+      - name: Run TypeScript Type Check
+        run: npm run lint
