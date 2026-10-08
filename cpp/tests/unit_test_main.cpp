@@ -4,6 +4,7 @@
 #include "order_book.hpp"
 #include "matching_engine.hpp"
 #include "risk_engine.hpp"
+#include "latency_buffer.hpp"
 
 void test_cta03_overflow_and_zero_quantity() {
     std::cout << "[Test] CTA-03: Testing UINT64_MAX / overflow and zero quantity rejection..." << std::endl;
@@ -79,6 +80,23 @@ void test_cta20_risk_engine_unwinding() {
     std::cout << "[Test] CTA-20 risk engine unwinding tests PASSED. Final position after unwind: " << risk.get_current_position() << std::endl;
 }
 
+void test_latency_metrics_properties() {
+    std::cout << "[Test] Latency metrics: histogram, monotonic percentiles and queue wait..." << std::endl;
+    LatencyMetrics metrics;
+    metrics.observe(10, 5);
+    metrics.observe(10, 7);
+    metrics.observe(20, 6);
+    assert(metrics.samples == 3);
+    assert(metrics.min_ms == 10);
+    assert(metrics.max_ms == 20);
+    assert(metrics.requested_min_ms == 5);
+    assert(metrics.requested_max_ms == 7);
+    assert(metrics.queue_wait_sum_ms == 22);
+    assert(metrics.percentile(0.50) <= metrics.percentile(0.95));
+    assert(metrics.percentile(0.95) <= metrics.percentile(0.99));
+    std::cout << "[Test] Latency metrics tests PASSED." << std::endl;
+}
+
 int main() {
     std::cout << "=== COMPREHENSIVE NATIVE C++20 UNIT TESTS (ASan & UBSan) ===" << std::endl;
     try {
@@ -86,6 +104,7 @@ int main() {
         test_cta01_duplicate_order_id();
         test_cta07_ownership_cancellation();
         test_cta20_risk_engine_unwinding();
+        test_latency_metrics_properties();
         std::cout << "=== ALL UNIT TESTS COMPLETED AND PASSED SUCCESSFULLY ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {

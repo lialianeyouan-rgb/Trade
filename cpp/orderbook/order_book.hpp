@@ -11,6 +11,7 @@ using PriceLevel = std::pair<double, std::vector<Order>>;
 
 class OrderBook {
 public:
+    OrderBook() { order_id_map.reserve(4096); }
     void add_order(const Order& order);
     void cancel_order(uint64_t order_id, uint32_t requester_id = 0, bool enforce_ownership = false);
     void cancel_orders_by_trader(uint32_t trader_id);
