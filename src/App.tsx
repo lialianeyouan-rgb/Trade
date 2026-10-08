@@ -147,15 +147,40 @@ export default function App() {
     currentExperimentRef.current = params;
     setHistory([]);
     const timeStr = new Date().toLocaleTimeString();
+
+    const STRATEGY_EXPLANATIONS: Record<string, { definition: string; marketViewEffect: string }> = {
+      FixedSpreadMM: {
+        definition: "Stratégie de Tenage de Marché à Spread Fixe (Fixed Spread MM). Le bot place en continu des ordres d'achat et de vente symétriques autour du prix moyen (Mid Price) avec un écart fixe constant.",
+        marketViewEffect: "Sur le Market View, les niveaux du carnet d'ordres (Order Book) restent stables et réguliers. Aucune correction d'inventaire n'est appliquée, servant de référence neutre."
+      },
+      InventoryAware: {
+        definition: "Stratégie Consciente de l'Inventaire (Inventory Aware MM). Le bot surveille son stock en temps réel et décale (skew) ses cotations pour se décharger de son risque si son inventaire devient trop important.",
+        marketViewEffect: "Sur le Market View, le carnet d'ordres se décale dynamiquement. Si le bot accumule du stock (position Long), il baisse ses prix pour encourager les ventes et se rééquilibrer."
+      },
+      VolatilityAdaptive: {
+        definition: "Stratégie Adaptative à la Volatilité (Volatility Adaptive MM). Le bot mesure les soubresauts du marché et ajuste la largeur de son spread en fonction de l'agitation des prix.",
+        marketViewEffect: "Sur le Market View, en période de calme, le carnet est resserré ; dès qu'un choc de volatilité survient, les prix d'achat et de vente s'écartent visiblement pour absorber le risque."
+      },
+      RegimeAdaptive: {
+        definition: "Stratégie Adaptative par Régime de Marché (Regime Adaptive MM). Analyse la tendance globale (haussière, baissière ou range) pour adapter l'agressivité de la cotation.",
+        marketViewEffect: "Sur le Market View, le comportement et le positionnement des ordres s'inclinent en phase avec la dynamique de tendance observée sur les graphiques de prix."
+      }
+    };
+
+    const stratDetails = STRATEGY_EXPLANATIONS[params.strategy] || {
+      definition: `Stratégie de trading personnalisée (${params.strategy}).`,
+      marketViewEffect: "Mise à jour du carnet d'ordres et exécution selon les paramètres définis."
+    };
+
     setAuditLogs((prev) => [
       {
         id: Math.random().toString(),
         timestamp: timeStr,
-        category: 'RESEARCH LAB',
-        action: `Lancement d'Expérience (${params.strategy})`,
-        plainLanguage: `Démarrage d'une simulation avec la stratégie "${params.strategy}" (Graine: ${params.seed}, Durée: ${params.duration === 0 ? 'Continu (Live)' : params.duration + ' pas'}).`,
+        category: 'STRATEGY EXECUTION',
+        action: `Lancement & Validation (${params.strategy})`,
+        plainLanguage: `${stratDetails.definition} [Paramètres appliqués - Graine: ${params.seed}, Durée: ${params.duration === 0 ? 'Continu (Live)' : params.duration + ' pas'}${params.replay ? ', Replay: ' + params.replay : ''}]`,
         technicalDetails: `START_EXPERIMENT strategy=${params.strategy} seed=${params.seed} duration=${params.duration}${params.replay ? ' replay=' + params.replay : ''}`,
-        outcome: 'Le moteur C++ recalcule le carnet d’ordres et les métriques de risque en temps réel.'
+        outcome: stratDetails.marketViewEffect
       },
       ...prev.slice(0, 49)
     ]);

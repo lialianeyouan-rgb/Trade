@@ -260,22 +260,28 @@ export default function ResearchLabView({
 
       {/* Completion Toast Notification */}
       {completionToast && (
-        <div className="border border-emerald-500/40 bg-emerald-950/20 p-3 rounded flex items-center justify-between animate-fadeIn">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+        <div className="border border-emerald-500/50 bg-emerald-950/30 p-3.5 rounded-lg flex items-center justify-between animate-fadeIn shadow-lg">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
             <div>
-              <span className="text-emerald-300 font-bold">{completionToast.text}</span>
-              <span className="text-neutral-400 ml-2">
-                P&L:{' '}
-                <span className={completionToast.pnl >= 0 ? 'text-emerald-400 font-semibold' : 'text-rose-400 font-semibold'}>
+              <div className="flex items-center gap-2">
+                <span className="text-emerald-300 font-bold text-xs uppercase tracking-wider">Simulation Validée & Exécutée</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-200 border border-emerald-700/50">
+                  {completionToast.text}
+                </span>
+              </div>
+              <p className="text-neutral-300 text-[11px] mt-1">
+                Résultat P&L:{' '}
+                <span className={completionToast.pnl >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
                   {completionToast.pnl >= 0 ? `+${completionToast.pnl.toFixed(4)}` : completionToast.pnl.toFixed(4)} USD
                 </span>
-              </span>
+                <span className="text-neutral-400 ml-2">| Retrouvez l'explication détaillée de la stratégie dans l'onglet **Audit Trail** du Market View.</span>
+              </p>
             </div>
           </div>
           <button
             onClick={() => setCompletionToast(null)}
-            className="text-neutral-500 hover:text-white px-2 py-0.5 text-xs cursor-pointer"
+            className="text-neutral-400 hover:text-white px-2 py-1 text-xs cursor-pointer rounded bg-neutral-900/50 border border-neutral-800"
           >
             ✕
           </button>
