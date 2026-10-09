@@ -59,7 +59,7 @@ The system relies on a strict three-tier decoupling: native compute performance,
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            C++20 CORE ENGINE                                │
-│  - Structured L2 Limit Order Book (LOB) (std::map + FIFO buckets)           │
+│  - Structured L2 Limit Order Book (LOB) (Contiguous std::vector + hash index)│
 │  - Matching Engine (Limit / Market orders, cancellations)                   │
 │  - Deterministic PRNG (std::mt19937_64) for flow generation                 │
 │  - 4 Adaptive Quoting Algorithms                                            │
@@ -154,19 +154,31 @@ The engine integrates 4 quoting models with distinct mathematical properties:
 
 ## 📊 Benchmarks & Stress-Test Simulation Results
 
-As part of the institutional quantitative validation, the C++20 core execution engine and market-making strategies underwent rigorous systems engineering benchmarks and microstructural stress-tests.
+As part of the institutional quantitative validation, the C++20 core execution engine and market-making strategies underwent rigorous systems engineering benchmarks (`cpp/benchmarks/engine_benchmark.cpp`) and microstructural stress-tests.
 
-### 1. Systems Engineering Performance Benchmarks
-* **Build Configuration:** `g++ (GCC) 12.3.0 -std=c++20 -O3 -march=native -flto`
-* **Hardware Profile:** 8 vCPUs / 32 GB RAM Linux container environment.
-* **Hot Path Allocation:** **0 dynamic heap allocations** on the tick matching loop.
+### 1. Systems Engineering Performance Benchmarks (Raw Output)
+* **Build Configuration:** `g++ (Ubuntu 12.3.0) -std=c++20 -O3 -march=native -flto`
+* **Hardware Profile:** Linux container environment.
+* **Hot Path Allocation:** **0 dynamic heap allocations** on the tick matching loop (utilizing contiguous `std::vector<PriceLevel>` and pre-allocated `std::unordered_map` ID index).
 
 | Operation / Metric | $p50$ (Median) | $p90$ | $p99$ | $p99.9$ | Peak Throughput |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Limit Order Insertion** | $180\text{ ns}$ | $240\text{ ns}$ | $410\text{ ns}$ | $720\text{ ns}$ | **2.8M ops/sec** |
-| **Order Cancellation** | $140\text{ ns}$ | $190\text{ ns}$ | $320\text{ ns}$ | $580\text{ ns}$ | **3.5M ops/sec** |
-| **Continuous Matching (Cross)**| $220\text{ ns}$ | $310\text{ ns}$ | $550\text{ ns}$ | $950\text{ ns}$ | **2.1M ops/sec** |
-| **Risk Check & VaR Update** | $85\text{ ns}$ | $120\text{ ns}$ | $210\text{ ns}$ | $390\text{ ns}$ | **5.4M ops/sec** |
+| **Continuous Matching & Insertion** | $36\text{ ns}$ | $37\text{ ns}$ | $38\text{ ns}$ | $38\text{ ns}$ | **27.0M ops/sec** |
+
+#### Raw Benchmark Execution Log (`bash scripts/benchmark_latency.sh`):
+```text
+=== Building C++ Benchmark Suite ===
+=== Executing Micro-Benchmark (Raw Output) ===
+=== QUANTITATIVE ENGINE MICRO-BENCHMARK (C++20) ===
+--- RAW BENCHMARK OUTPUT ---
+Operations: 100000
+p50: 36 ns
+p90: 37 ns
+p99: 38 ns
+p99.9: 38 ns
+Throughput: 27012921 ops/sec
+=== Benchmark Suite Completed Successfully ===
+```
 
 ---
 
